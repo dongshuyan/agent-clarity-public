@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "default_level": "S2",
+  "window_mode": "reference",
+  "formula_version": "s1s4-v1-uncalibrated",
+  "round_limit": 40,
+  "compression_limit": 3,
+  "failure_limit": 3,
+  "notice_threshold": 60,
+  "context_windows": {},
+  "levels": {
+    "S1": {
+      "round_weight": 75,
+      "compression_weight": 25,
+      "requires": ["round", "compression"]
+    },
+    "S2": {
+      "round_weight": 6,
+      "input_weight": 80,
+      "compression_weight": 4,
+      "failure_weight": 5,
+      "growth_weight": 5,
+      "requires": ["round", "input_ratio", "compression"]
+    },
+    "S3": {
+      "base_level": "S2",
+      "probe_every": 3,
+      "max_delta": 9,
+      "signals": ["continuity_risk", "repetition_risk", "constraint_risk"]
+    },
+    "S4": {
+      "base_level": "S2",
+      "probe_every": 5,
+      "max_delta": 15,
+      "signals": ["continuity_risk", "repetition_risk", "constraint_risk",
+                  "progress_risk", "handoff_risk"]
+    }
+  },
+  "semantic": {
+    "schema_version": 1,
+    "threshold": 60,
+    "max_prompt_chars": 7000,
+    "max_history_turns": 3,
+    "max_history_chars": 900,
+    "max_submission_bytes": 4096,
+    "max_evidence_codes": 5,
+    "evidence_codes": [
+      "repeated_failure", "missing_constraint", "low_progress",
+      "handoff_risk", "long_context", "tool_failure"
+    ],
+    "risk_labels": ["none", "low", "medium", "high", "unknown"],
+    "evidence_strength": ["low", "medium", "high", "unknown"],
+    "uncertainty": ["low", "medium", "high", "unknown"]
+  }
+}

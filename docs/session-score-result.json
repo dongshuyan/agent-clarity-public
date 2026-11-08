@@ -1,0 +1,75 @@
+{
+  "version": "0.7.0",
+  "plugin_name": "clarity-session-titles",
+  "cli_version": "0.167.0-alpha.3.2",
+  "default_level": "S2",
+  "default_window_mode": "reference",
+  "native_model": "gpt-6-luna",
+  "native_reasoning_effort": "low",
+  "unit_tests": {
+    "count": 186,
+    "passed": true
+  },
+  "final_live_test": {
+    "command": "python3 tests/live_session_scores.py --execute",
+    "model": "gpt-6-luna",
+    "effort": "low",
+    "scenarios": 14,
+    "passed": true,
+    "strict_s2": "insufficient_data / 未评分｜",
+    "s1": "S1·4分",
+    "s2_reference": "S2·10分",
+    "manual_progress": "S2·11分，用户保留的进展已保留",
+    "disabled": "disabled，评分前缀已移除",
+    "s3": "第3个根回合 S3·12分，semantic_delta=2，pending_probe=null",
+    "s4": "第5个根回合 S4·18分，semantic_delta=6，pending_probe=null",
+    "following_non_probe": "回到 S2· 前缀",
+    "evidence": ".local/session-score-20261107/live/result.json"
+  },
+  "installation": {
+    "shared_root": "<shared portable CODEX_HOME>",
+    "plugin_id": "clarity-session-titles@agent-clarity-global-39e78bde7a2a",
+    "version": "0.7.0",
+    "default_level": "S2",
+    "available_levels": [
+      "S1",
+      "S2",
+      "S3",
+      "S4"
+    ],
+    "homes_checked": [
+      "<shared portable CODEX_HOME>",
+      "<Codex home 2>",
+      "<Codex home 3>"
+    ],
+    "hooks_per_home": 7,
+    "all_hooks_enabled_and_trusted": true,
+    "bundle_hashes_match": true,
+    "unrelated_config_preserved": true
+  },
+  "monitoring_model_calls_added": 0,
+  "review": {
+    "requested_model": "claude-opus-5-5",
+    "requested_effort": "xhigh",
+    "status": "unavailable",
+    "api_error_status": 402,
+    "substitute_model": "gpt-6-astra",
+    "substitute_effort": "xhigh",
+    "substitute_authorized_by_user": true,
+    "scope": "read-only architecture review; not Claude Code attestation"
+  },
+  "limits": [
+    "reference window is an estimate, not measured active occupancy",
+    "round count begins when monitoring takes over",
+    "score is uncalibrated and not a probability",
+    "S3/S4 are same-turn model self-checks, not independent post-hoc audits",
+    "desktop sidebar and systemMessage visual rendering were not verified",
+    "forced compaction/model-switch and reset-benefit experiments were not performed",
+    "S4 history cleanup is per CODEX_HOME; other accounts require separate cleanup",
+    "no active Harbor account directories were present during this final check"
+  ],
+  "arithmetic_examples": {
+    "7_rounds_90pct_other_signals_zero": 73,
+    "35_rounds_10pct_other_signals_zero": 13
+  }
+}

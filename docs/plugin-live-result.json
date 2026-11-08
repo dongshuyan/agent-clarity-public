@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-18",
+  "plugin_version": "0.2.0",
+  "codex_version": "0.163.0-alpha.10.2",
+  "plugin_lifecycle": {
+    "checks": {
+      "real_plugin_loaded": true,
+      "other_project_excluded": true,
+      "same_version_update": true,
+      "version_update": true,
+      "activation_time_preserved": true,
+      "independent_installations": true,
+      "uninstall_stops_loading": true,
+      "uninstall_removes_owned_cache": true,
+      "uninstall_preserves_other_project": true,
+      "uninstall_preserves_user_rules": true,
+      "reinstall_works": true,
+      "user_config_byte_unchanged": true
+    },
+    "passed": true,
+    "environment": "Disposable Codex home, real plugin discovery and cache, no model requests"
+  },
+  "current_account_install": {
+    "result": "installed",
+    "global_config_and_rules_unchanged": true,
+    "scope_checks": {
+      "enabled_in_test_project": true,
+      "absent_from_parent_project": true
+    }
+  },
+  "new_chat": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "checks": {
+      "first_turn_waiting": true,
+      "completion": true,
+      "stable_topic": true,
+      "external_change_pauses_manager": true,
+      "manual_title_preserved": true,
+      "persisted_across_connections": true
+    },
+    "titles": [
+      "待确认｜面向同事的库存缓存说明｜解释思路待确认",
+      "已完成｜面向同事的库存缓存说明｜库存缓存说明已交付"
+    ],
+    "commands": [
+      {
+        "turn": 1,
+        "exit_code": 0,
+        "result": {
+          "result": "updated",
+          "title": "待确认｜面向同事的库存缓存说明｜解释思路待确认",
+          "transport": "stdio"
+        }
+      },
+      {
+        "turn": 2,
+        "exit_code": 0,
+        "result": {
+          "result": "updated",
+          "title": "已完成｜面向同事的库存缓存说明｜库存缓存说明已交付",
+          "transport": "stdio"
+        }
+      }
+    ],
+    "passed": true
+  },
+  "limits": [
+    "No visual desktop sidebar acceptance test",
+    "External title edits simulated through the official API, not mouse input",
+    "Per-segment manual edit protection tested in unit tests",
+    "Agent-triggered invocation depends on model instruction following"
+  ],
+  "clean_export": {
+    "reference_absent": true,
+    "initial_local_state_absent": true,
+    "unit_tests_passed": 54,
+    "real_plugin_lifecycle_passed": true
+  }
+}

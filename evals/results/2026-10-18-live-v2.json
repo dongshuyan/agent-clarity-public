@@ -1,0 +1,468 @@
+{
+  "version": 2,
+  "date": "2026-10-18",
+  "metadata": {
+    "development": {
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "cli_version": "codex-cli 0.163.0-alpha.10.2",
+      "transport": "app-server",
+      "dataset_sha256": "53210cef6c9535d2a5cf9d2d63c6ed1c827f8b137a962bc2928b3f5d0ab7bd17",
+      "agents_sha256": "6399201c59e700a0d9be83abab37db211340d7ec261c112fb4ac1023e74637df",
+      "skill_sha256": "1e823da0242f595ffd1cbf2975934130dfeaa4392d4cd7b0b66178297d16f120",
+      "statuses": {
+        "baseline": "generated",
+        "clarity": "generated"
+      }
+    },
+    "holdout": {
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "cli_version": "codex-cli 0.163.0-alpha.10.2",
+      "transport": "app-server",
+      "dataset_sha256": "53210cef6c9535d2a5cf9d2d63c6ed1c827f8b137a962bc2928b3f5d0ab7bd17",
+      "agents_sha256": "6399201c59e700a0d9be83abab37db211340d7ec261c112fb4ac1023e74637df",
+      "skill_sha256": "1e823da0242f595ffd1cbf2975934130dfeaa4392d4cd7b0b66178297d16f120",
+      "statuses": {
+        "clarity": "generated",
+        "baseline": "generated"
+      }
+    }
+  },
+  "provenance": "public-onboarding原材料逐字来自NB-Corp/gpt-with-taste MIT公开案例，固定版本079fb262b4d7932515ba4e6341fd57b6f2122f4a；只作历史写作任务，不代表当前本机状态。options-regression复用首轮回归题。其余为独立构造的假设材料，holdout未用于本轮规则修改。",
+  "cases": [
+    {
+      "id": "public-onboarding",
+      "split": "development",
+      "outputs": {
+        "baseline": "按这份案例的安装方式，装好后正常打开一个新的 Codex 会话，直接输入任务即可。Main 主提示词会自动加载，无需选择 controller、追加 profile 参数或使用定制启动器。对话语言跟随你，项目产物沿用项目语言。\n\n安装记录中的 `<CODEX_HOME>` 代表 Codex 配置目录。其 `config.toml` 顶层 `model_instructions_file` 已指向 `<CODEX_HOME>/prompts/gpt-with-taste/main.md`。安装保留了原有模型、provider、effort、权限、MCP、skills、AGENTS 和并发配置。记录中有一轮真实请求确认加载了完整 Main；以下状态均来自这份历史记录。\n\n使用子任务时，需要留意 Sub 的限制。完整 Sub 提示词文件虽然已经安装，但安装器没有替换已有子角色。此前仅设置子角色的 `model_instructions_file`，未能把继承的 Main 换成 Sub。子角色的 developer 指令可以加载，所选子角色可通过支持的 `developer_instructions` 通道组合完整 Sub，但这套组合是否实际投递到真正的子会话，记录中尚未检查。\n\n逐轮提醒是可选功能。案例已安装插件 `gpt-with-taste@gpt-with-taste-local`，但当时三个 Hook 虽已被发现并开启，信任状态仍全部为 `untrusted`。若要启用这些提醒，请在使用同一 `<CODEX_HOME>` 的 Codex 交互终端中输入 `/hooks`，审查并信任该插件的三个定义：\n\n- `UserPromptSubmit`：向 Main 提供用户输入提醒。\n- `SubagentStart`：向 Sub 提供子任务输入提醒。\n- `PostToolUse`，matcher 为 `^wait_agent$`：向 Main 提供已完成子任务的结果提醒。\n\n三个定义的命令均指向插件的 `hooks/steer.mjs`。公开 app-server API 当时只有 `hooks/list`，没有批准 Hook 信任的方法；安装器也没有手写信任文件或设置全局 bypass。\n\n完成信任后，还需通过自然任务检查提醒是否真正到达对应的 Main 或 Sub。历史记录中的一轮父子任务正常完成，但三路提醒均未投递，也没有生成审计文件；原用户输入和子任务结果各保留一份。因此，插件安装检查通过，尚不能说明提醒已经生效。\n\n需要恢复时，请保留并使用当初安装的同一份 clone，以及其中的私有文件 `.gpt-with-taste/install-receipt.json`。这份收据保存首次安装前的 `model_instructions_file` 和受管文件基线，多次安装不会累积备份副本。旧的中性提示词文件仍在原位置。\n\n在该 clone 根目录，先预览恢复内容，将 `<CODEX_HOME>` 换成对应目录：\n\n```sh\nnode scripts/install.mjs --restore --home \"<CODEX_HOME>\" --dry-run\n```\n\n确认预览后，再执行恢复：\n\n```sh\nnode scripts/install.mjs --restore --home \"<CODEX_HOME>\"\n```\n\n可选插件的恢复连预览也需要可用的 Codex CLI。记录中的路径为 `<CODEX_CLI>`；若该路径不可用，在命令末尾加上 `--codex \"可用的CLI路径\"`。历史记录中的真实 home 安装、检查和恢复预览均正常结束，但没有执行真实卸载。\n\n公开源码仓库为 https://github.com/NB-Corp/gpt-with-taste 。记录中的插件安装源码当时尚未推送到公开仓，不能据此认为公开仓已包含这套安装内容。",
+        "clarity": "按这份案例的安装记录，正常打开一个新的 Codex 会话，就会使用 GPT with Taste 的主提示词（Main）。无需选择 controller、额外添加 profile 参数或使用定制启动器。对话语言跟随用户，项目产物沿用项目语言；原有模型、provider、effort、权限、MCP、skills、AGENTS 和并发配置保持不变。\n\n记录中的 `config.toml` 已通过顶层 `model_instructions_file` 指向 `<CODEX_HOME>/prompts/gpt-with-taste/main.md`，且一轮真实的 GPT-6.1 Sol/high 请求已确认加载与作者源一致的完整 Main。以下状态均来自这份历史记录。\n\n如果要使用子代理，需要留意：完整子提示词（Sub）文件虽然已经安装，但已有子角色没有被自动修改或替换。此前给子角色设置 `model_instructions_file`，并未把继承的 Main 换成 Sub。所选子角色可通过支持的 `developer_instructions` 通道组合完整 Sub，但组合内容是否实际投递到真正的子会话，尚未检查。\n\n逐轮提醒是可选功能。若需要启用，请按以下顺序操作：\n\n1. 在使用同一 `<CODEX_HOME>` 的交互终端中打开 `/hooks`。\n2. 审查插件 `gpt-with-taste@gpt-with-taste-local` 的三个 Hook 定义：`UserPromptSubmit`、`SubagentStart` 和 `PostToolUse`（matcher 为 `^wait_agent$`）。它们的命令都应指向插件的 `hooks/steer.mjs`，确认后在该入口完成信任。\n3. 完成信任后，通过正常的父子任务检查三路提醒是否分别到达 Main、Sub，以及接收已完成子任务 `wait_agent` 结果的 Main。\n\n记录中，这三个 Hook 已被发现并开启，但信任状态均为 `untrusted`。在已完成的一轮正常 `exec resume` 父子任务中，三路提醒均未投递，也未产生审计文件；任务本身完成，原用户输入和子任务结果各保留一份。因此，插件安装检查通过，还不能说明提醒已经生效。脚本保留原任务和工具结果，不改写它们。\n\n记录中的公开 app-server API 只有 `hooks/list`，没有批准 Hook 信任的方法。安装器也没有手写 trust 文件或 hash，或设置全局 bypass；信任审查应通过上述 `/hooks` 入口完成。\n\n需要恢复安装前状态时，请使用安装时的同一 clone，并保留其中的私有文件 `.gpt-with-taste/install-receipt.json`。恢复依赖这份记录：多次安装会保留首次安装前的 `model_instructions_file` 和受管文件基线，不会累积备份副本；旧的中性提示词文件仍在原位置。\n\n在该 clone 根目录先预览恢复，再执行恢复。将 `<CODEX_HOME>` 替换为安装时使用的实际路径：\n\n```sh\nnode scripts/install.mjs --restore --home \"<CODEX_HOME>\" --dry-run\nnode scripts/install.mjs --restore --home \"<CODEX_HOME>\"\n```\n\n可选插件的恢复连预览也需要可用的 Codex CLI。若记录中的 `<CODEX_CLI>` 路径已不可用，请在相应命令后加上 `--codex \"可用的 CLI 路径\"`。\n\n安装器的 17 个 fixture 检查和一项真实 CLI 集成检查已完成，覆盖安装、更新、旧 Hook 去重、保留原恢复值和恢复路径；真实 home 的 install、check 和 restore dry-run 均正常结束，但没有执行真实卸载。\n\n源码由独立的 GPT with Taste Git 仓库管理，公开仓为 https://github.com/NB-Corp/gpt-with-taste。记录中的插件安装源码当时尚未推送到公开仓，README 展示制作也处于暂停状态，因此不能假定公开仓已包含这套安装内容。"
+      },
+      "blind_labels": {
+        "A": "clarity",
+        "B": "baseline"
+      },
+      "review": {
+        "id": "public-onboarding",
+        "A": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "开头直接回答如何开始，并将后续状态明确限定为历史记录，没有把安装记录冒充当前电脑的状态或本次执行结果。",
+            "完整区分 Main 已经真实请求核对、Sub 文件已安装但组合投递未检查、Hook 已开启但尚未信任且已测任务未投递；没有把安装检查等同于生效。",
+            "提醒信任入口、三路投递检查、原 clone 与私有收据、恢复预览和实际恢复、CLI 不可用时的替代参数均可照做。",
+            "保留了较多安装审计与源码发布细节，内容准确，但首次使用者需要从中筛选当前要做的步骤。提醒现状放在启用步骤之后，也使读者较晚才看到尚未投递这一限制。这属于组织上的偏好，不构成事实问题。"
+          ],
+          "question_answers": [
+            {
+              "q": "刚装好的同事现在怎样开始？",
+              "answer": "按这份案例的安装方式，正常打开新的 Codex 会话即可使用 Main，不需要改变模型配置、选择 controller、添加 profile 参数或使用定制启动器。",
+              "supported": true
+            },
+            {
+              "q": "是否必须先让提醒生效？",
+              "answer": "不必。逐轮提醒是可选功能；历史记录中三个 Hook 尚未信任，已测父子任务也没有收到提醒。",
+              "supported": true
+            },
+            {
+              "q": "怎么恢复？",
+              "answer": "使用当初的同一 clone 和其中的私有 install-receipt.json，在 clone 根目录先执行带 --dry-run 的恢复命令，再执行实际恢复；可选插件恢复需要可用 CLI，必要时用 --codex 指定。",
+              "supported": true
+            }
+          ]
+        },
+        "B": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "开头直接给出新建普通会话并输入任务的行动，保留原有配置不变和历史记录的边界。没有承诺本机已验证或全部功能生效。",
+            "准确保留 Main 的一次真实请求核对、Sub 的未核对子会话投递、Hook 未信任与未投递、信任后仍要检查自然任务等不同状态。",
+            "先交代提醒当前状态，再逐项说明 Hook 对应的消费者；恢复命令分别放在预览与执行的文字之后，操作顺序较容易查找。",
+            "省略了具体 fixture 数量、部分安装器实现细节和 README 暂停状态。这些省略不改变当前上手、限制或恢复条件；仍明确公开仓当时不一定包含安装内容，也没有将恢复预览说成实际卸载。"
+          ],
+          "question_answers": [
+            {
+              "q": "刚装好的同事现在怎样开始？",
+              "answer": "按这份案例的安装方式，正常打开新的 Codex 会话，直接输入任务；Main 会自动加载，不需要改变模型或使用特殊启动方式。",
+              "supported": true
+            },
+            {
+              "q": "是否必须先让提醒生效？",
+              "answer": "不必。提醒是可选项，记录中的三个 Hook 尚未信任，已测任务没有收到提醒。",
+              "supported": true
+            },
+            {
+              "q": "怎么恢复？",
+              "answer": "保留并使用当初的同一 clone 及私有 install-receipt.json，在根目录先预览恢复，再执行恢复；如果记录中的 CLI 路径不可用，用 --codex 指向可用 CLI。",
+              "supported": true
+            }
+          ]
+        },
+        "preference": "B",
+        "reason": "两份均准确可用。B 把提醒的现状放在启用操作之前，并将三种提醒的作用及两阶段恢复操作分别对应到具体条目，较符合新同事先开始、再查限制与恢复的阅读顺序。偏好来自信息定位和动作对应，不是因为 B 更短。"
+      }
+    },
+    {
+      "id": "dense-procedure",
+      "split": "development",
+      "outputs": {
+        "baseline": "按以下顺序执行切换：\n\n1. 确认值班人已确认当晚维护窗口，并完成报表核对。报表没有差异时，执行人才能在该窗口内发起切换。\n\n2. 如果报表存在差异，执行人先将差异交给数据负责人核实。只有数据负责人确认差异属于预期结果，并在工单中注明后，执行人才可继续。继续时仍须满足维护窗口已由值班人确认、切换在窗口内发起这两个条件。差异尚未确认，或工单尚未注明时，不得切换。\n\n3. 切换后，执行人观察十分钟。在这十分钟内，一旦出现连续两次写入失败，立即停止新写入并通知值班人。是否回退由值班人决定，执行人不得自行回退。\n\n4. 十分钟内未出现连续两次写入失败时，可以结束本次观察。观察结束不代表后续运行不会发生问题。",
+        "clarity": "1. 切换前，执行人先确认值班人已确认当晚的维护窗口，并检查核对报表：\n   - 报表没有差异：可以在已确认的窗口内发起切换。\n   - 报表存在差异：先交给数据负责人核实。只有数据负责人确认差异属于预期结果，并在工单中注明后，才可以在已确认的窗口内发起切换。确认和工单注明未完成前，不得切换。\n\n2. 切换后，执行人观察十分钟。如果这十分钟内出现连续两次写入失败，立即停止新写入并通知值班人。是否回退由值班人决定，执行人不得自行回退。\n\n3. 如果十分钟内未出现连续两次写入失败，可以结束本次观察。观察结束不代表后续运行不会发生问题。"
+      },
+      "blind_labels": {
+        "A": "baseline",
+        "B": "clarity"
+      },
+      "review": {
+        "id": "dense-procedure",
+        "A": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "维护窗口由值班人确认、切换必须发生在窗口内、有差异时的数据负责人确认及工单注明，均被保留。第二步明确给出有差异的例外路径，不能把第一步孤立理解为有任何差异都永远禁止切换。",
+            "将工单未注明也明确列为不得切换，忠实表达原文中确认与注明必须同时完成的条件。",
+            "十分钟、连续两次失败、停止新写入、通知值班人和执行人不得自行回退均准确；观察结束不保证后续无问题。",
+            "将无差异与有差异分成相邻步骤可以理解，但窗口条件重复出现，读者需把两个步骤合并理解为分支。"
+          ],
+          "question_answers": [
+            {
+              "q": "有差异但维护窗口已确认，可以切换吗？",
+              "answer": "还不能。必须先由数据负责人确认差异属于预期结果并在工单注明，随后仍须在已确认的窗口内切换。",
+              "supported": true
+            },
+            {
+              "q": "连续两次写入失败后谁决定回退？",
+              "answer": "在切换后的十分钟观察期内触发这一条件时，执行人停止新写入并通知值班人，由值班人决定是否回退；执行人不得自行回退。",
+              "supported": true
+            }
+          ]
+        },
+        "B": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "将切换前的共同窗口条件和报表的两个分支放在同一步中；执行人可以直接按报表有无差异选择路径。",
+            "有差异时必须由数据负责人确认预期并注明工单，且仍须在已确认窗口内切换；确认或注明未完成都不允许切换。",
+            "观察期、触发阈值、停止新写入及通知动作、回退决策归属和观察结束的限制均保留，没有把一次失败改成回退条件或授权执行人回退。"
+          ],
+          "question_answers": [
+            {
+              "q": "有差异但维护窗口已确认，可以切换吗？",
+              "answer": "还不能。数据负责人确认差异属于预期结果并完成工单注明之后，才可以在已确认的窗口内切换。",
+              "supported": true
+            },
+            {
+              "q": "连续两次写入失败后谁决定回退？",
+              "answer": "切换后十分钟内发生连续两次写入失败时，执行人停止新写入并通知值班人；值班人决定是否回退，执行人不得自行回退。",
+              "supported": true
+            }
+          ]
+        },
+        "preference": "B",
+        "reason": "两份均保留全部影响操作的条件。B 把报表有无差异写成同一阶段的两个分支，较直接地呈现执行人需要作出的条件判断，也减少跨步骤寻找共同窗口要求的负担。"
+      }
+    },
+    {
+      "id": "options-regression",
+      "split": "development",
+      "outputs": {
+        "baseline": "建议当前选择方案 A。团队每天处理 80 条，只要求当天完成；A 每天保证批量处理一次、最多 500 条，符合当前处理量和时效要求。A 每月 100 元，低于 300 元预算上限，比 B 每月少花 180 元。\n\n| 比较项 | 方案 A | 方案 B |\n| --- | --- | --- |\n| 月费用 | 100 元，预算余量 200 元 | 280 元，预算余量 20 元 |\n| 处理时效 | 每天批量一次，不能即时处理 | 支持即时处理 |\n| 每日处理上限 | 500 条 | 200 条 |\n| 准确性与人工工作 | 两者准确性相同，均需人工复核异常记录 | 两者准确性相同，均需人工复核异常记录 |\n\nB 的额外费用对应即时处理能力。目前尚未确定需要即时结果，现阶段选择 A 更合适；安排批次时，应确保当天的记录能在当天完成。\n\n出现以下变化时，应重新评估：\n\n- 明确需要即时结果：若每日记录不超过 200 条，且月预算仍能覆盖 280 元，可以考虑 B。\n- 每日记录超过 200 条：B 将无法覆盖全部处理量；若仍只要求当天完成，A 在不超过 500 条时仍符合容量要求。\n- 每日记录超过 500 条，或既需要即时处理又超过 200 条：两个现有方案都无法完整满足需求，需要另找方案。\n- 预算、价格或处理能力发生变化：按新的条件重新比较。\n\n以上建议仅依据题设中的假设价格与能力。",
+        "clarity": "建议当前选择方案 A。团队每天处理 80 条记录，只要求当天完成；A 保证每天批量处理一次，容量上限为每天 500 条，符合当前需求。A 每月 100 元，低于 300 元预算上限，也比 B 每月少花 180 元。\n\nB 每月 280 元，同样在预算内，支持即时处理，每天最多处理 200 条。它的即时处理能力目前尚非明确需求，准确性也与 A 相同，因此现阶段没有充分理由为此增加支出。两者都需要人工复核异常记录，但材料未说明异常数量或复核耗时，不能据此认定人工工作量相同。\n\n出现以下变化时，应重新比较：\n\n- 明确需要即时结果：若每天不超过 200 条、月预算仍至少为 280 元，可考虑 B。\n- 每天记录量超过 200 条：按题设，B 已无法覆盖全部日处理量；A 在每天不超过 500 条、仍允许批处理时可以继续满足需求。\n- 每天超过 500 条，或同时要求即时处理且每天超过 200 条：这两个方案都无法单独满足需求，需要另找方案。\n- 预算、价格、处理能力或人工复核要求变化：按新的条件重新评估。\n\n以上判断仅依据题设中的假设价格和能力；未来是否需要即时结果仍未确定。"
+      },
+      "blind_labels": {
+        "A": "clarity",
+        "B": "baseline"
+      },
+      "review": {
+        "id": "options-regression",
+        "A": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "推荐 A 的依据完整：每天 80 条、当天完成、每日批量容量 500 条、每月 100 元且预算上限 300 元；与 B 的差价 180 元计算正确。",
+            "准确保留 B 的即时能力、每月 280 元和每天 200 条上限，两者准确性相同且均需人工复核异常；没有据此推断两者复核工作量相同。",
+            "即时需求尚未决定被明确保留。超过 200 条、超过 500 条和即时处理与容量的组合边界均正确，新增的重新评估条件属于基于题设的建议，没有冒充已发生的事实。",
+            "对人工工作量未知的补充谨慎且有根据；比较主要依靠连贯文字，仍容易找到费用、容量与时效的权衡。"
+          ],
+          "question_answers": [
+            {
+              "q": "当前优先哪个方案，为什么？",
+              "answer": "优先 A。它满足每天 80 条及当天完成的要求，每月 100 元在预算内，比 B 每月少 180 元。",
+              "supported": true
+            },
+            {
+              "q": "如果未来要即时结果，需要重新看什么？",
+              "answer": "重新评估 B，并同时检查每天不超过 200 条及预算能覆盖每月 280 元；如果既要求即时又超过每天 200 条，需要另找方案。",
+              "supported": true
+            }
+          ]
+        },
+        "B": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "推荐 A 的理由与题设一致，价格、每天容量、处理时效和当前需求均正确；预算余量 200 元、20 元及差价 180 元计算正确。",
+            "表格便于并排查找两方案；准确性与人工工作的两个单元格重复的是相同事实，并未声称人工耗时相同。",
+            "保留未来即时需求未确定的状态。重新评估涵盖即时需求、B 的 200 条上限、A 的 500 条上限及同时要求即时且超过 200 条的情况，没有遗漏组合约束。",
+            "安排批次以确保当天完成是落实当前时效要求的操作建议，不是对方案新增保证。"
+          ],
+          "question_answers": [
+            {
+              "q": "当前优先哪个方案，为什么？",
+              "answer": "优先 A。每天 80 条且只要求当天完成时，A 的批处理能力足够，每月 100 元在预算内，费用比 B 低。",
+              "supported": true
+            },
+            {
+              "q": "如果未来要即时结果，需要重新看什么？",
+              "answer": "考虑是否改用 B，同时确认每天记录不超过 200 条且预算可覆盖每月 280 元；即时需求与超过 200 条同时出现时，两方案均不能完整满足。",
+              "supported": true
+            }
+          ]
+        },
+        "preference": "tie",
+        "reason": "两份都清楚给出建议及相同的关键重评边界。B 的表格适合横向查找，A 的连贯说明及人工复核工作量边界也有价值；仅凭该任务没有充分理由判定其中一种呈现方式更可用。"
+      }
+    },
+    {
+      "id": "offline-draft",
+      "split": "holdout",
+      "outputs": {
+        "baseline": "您看到的“已保存到此设备”，表示草稿已经保存在当前电脑的这个浏览器里。另一台电脑只能读取服务器上的版本，所以在上传成功前，还看不到这些修改。只有页面显示“已同步”，才表示服务器已确认收到。\n\n您可以回到原来的电脑，用同一个浏览器重新打开同一份草稿；如果本地副本仍在，就能读到。请先不要清除该浏览器的数据，这会删除本地副本。网络恢复后，系统会尝试上传，但不保证成功，需要留意是否显示“已同步”。如果本地副本已经被清除，目前材料没有提供可确认的恢复办法，也没有说明是否有历史版本或其他备份。",
+        "clarity": "“已保存到此设备”表示草稿保存在您当前使用的浏览器里。另一台电脑读取的是服务器上收到的版本，所以这台电脑保存了修改，另一台电脑也可能还看不到。\n\n编辑器在网络可用时才会尝试上传，服务器确认收到后，页面才显示“已同步”。因此，判断修改是否已经传到服务器，要看是否显示“已同步”。网络恢复会触发上传尝试，但不保证一定成功。\n\n您可以回到原来的电脑，用同一个浏览器重新打开同一份草稿；只要本地副本仍在，就能读取。请先不要清除该浏览器的数据，因为这会删除本地副本。如果本地副本已经被删除，目前的信息无法确认是否有服务器历史版本或其他备份，因此不能承诺恢复。"
+      },
+      "blind_labels": {
+        "A": "baseline",
+        "B": "clarity"
+      },
+      "review": {
+        "id": "offline-draft",
+        "A": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "开头直接解释本地保存与服务器版本的区别，并把另一台电脑看不到修改与尚未上传成功联系起来；已同步对应服务器确认接收。",
+            "保留网络恢复只触发尝试、不保证成功，同一浏览器同一草稿只能读取仍存在的本地副本，以及清除浏览器数据会删除该副本。",
+            "没有承诺本地副本被清除后能够恢复，并明确历史版本与其他备份是否存在未知。",
+            "未单独复述网络可用时才尝试上传，但网络恢复后的上传尝试及其不确定性已经说明，未引出离线也能上传或必定恢复等错误结论。可直接作为客服向客户的解释。"
+          ],
+          "question_answers": [
+            {
+              "q": "另一台电脑什么时候能读到这次修改？",
+              "answer": "这次修改成功上传并由服务器确认收到后；页面显示已同步才表明服务器已确认接收，只有已保存到此设备还不够。",
+              "supported": true
+            },
+            {
+              "q": "此时清浏览器数据有什么影响？",
+              "answer": "会删除该浏览器中的本地草稿副本。材料未说明是否有历史版本或其他备份，不能保证删除后可以恢复。",
+              "supported": true
+            }
+          ]
+        },
+        "B": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "分别解释保存位置、同步确认和可采取的操作，保留了网络可用才尝试上传以及网络恢复不保证上传成功的限制。",
+            "另一台电脑读取服务器版本、已同步必须经过服务器确认、本地副本必须仍存在、清理浏览器数据会删除副本等关键关系准确。",
+            "最后明确无法确认服务器历史版本或其他备份，不能承诺恢复；没有把信息缺失误写成确定不存在备份。",
+            "分成三个短段落，客服可以按原因、确认方法、下一步的顺序向客户解释。"
+          ],
+          "question_answers": [
+            {
+              "q": "另一台电脑什么时候能读到这次修改？",
+              "answer": "服务器成功收到这次修改以后；本地显示已保存到此设备并不代表这一步已经完成，应查看已同步状态。",
+              "supported": true
+            },
+            {
+              "q": "此时清浏览器数据有什么影响？",
+              "answer": "会删除当前浏览器的本地草稿副本。是否存在服务器历史版本或其他备份无法确认，因此不能承诺恢复。",
+              "supported": true
+            }
+          ]
+        },
+        "preference": "tie",
+        "reason": "两份都让客服能够准确解释保存与同步、给出安全的读取步骤，并避免恢复承诺。A 直接连接上传成功与跨电脑可见，B 将联网尝试条件说得更显式；这些差别不足以形成稳定的可用性优劣。"
+      }
+    },
+    {
+      "id": "paper-fidelity",
+      "split": "holdout",
+      "outputs": {
+        "baseline": "On Dataset R, Method P achieved a mean accuracy of 91.4% with a standard deviation of 0.2 percentage points over five runs, compared with 91.1% and 0.4 percentage points, respectively, for Method Q over five runs. P therefore had a 0.3-percentage-point higher mean accuracy and a lower observed standard deviation. Under the same measured setup, peak memory was 1.8 GB for P and 1.2 GB for Q, a difference of 0.6 GB; these memory values were single measurements, not five-run means. No significance test or causal ablation was performed, and evaluation was limited to Dataset R.",
+        "clarity": "On Dataset R, Method P achieved a mean accuracy of 91.4% (standard deviation: 0.2 percentage points) over five runs, compared with 91.1% (standard deviation: 0.4 percentage points) for Method Q over five runs. P thus had a 0.3-percentage-point higher mean accuracy, while its peak memory was 1.8 GB compared with 1.2 GB for Q under the same measured setup. Each peak memory value was a single measurement, not a five-run mean. No significance test or causal ablation was performed, so these observations do not establish statistical significance or explain the cause of the accuracy difference. Evaluation was limited to Dataset R; performance on other datasets remains unassessed."
+      },
+      "blind_labels": {
+        "A": "clarity",
+        "B": "baseline"
+      },
+      "review": {
+        "id": "paper-fidelity",
+        "A": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "符合单个英文结果段落要求；两个方法的 mean accuracy、standard deviation、percentage points、five runs 和 peak memory 均清楚对应，数值与单位准确。",
+            "0.3 个百分点的均值差计算正确；将更高的观测平均准确率与更高峰值内存放在同一句中，清楚呈现权衡。",
+            "同一测量设置、内存各为单次测量、未作显著性检验或因果消融、仅评估 Dataset R 均明确保留。对不能据此确认统计显著性或差异原因的说明忠实于证据边界。",
+            "Q 的标准差直接标注指标名称，读者不必通过 respectively 回找对应关系。"
+          ],
+          "question_answers": [
+            {
+              "q": "Which measurement was averaged over five runs?",
+              "answer": "Accuracy was averaged over five runs for each method. Each peak memory value was a single measurement, not a five-run mean.",
+              "supported": true
+            },
+            {
+              "q": "Is P superior on both metrics?",
+              "answer": "No. P had higher observed mean accuracy, 91.4% versus 91.1%, but also higher measured peak memory, 1.8 GB versus 1.2 GB. The paragraph does not establish statistical or general superiority.",
+              "supported": true
+            }
+          ]
+        },
+        "B": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "符合单个英文结果段落要求；准确率均值、标准差、五次运行、峰值内存、同一测量设置及单次内存测量均与原材料一致。",
+            "分别增加 0.3 个百分点的平均准确率差、较低的观测标准差以及 0.6 GB 内存差，都是由材料数值直接得到的描述，没有转化成显著性、因果或普遍优越性的主张。",
+            "未作显著性检验或因果消融且仅限 Dataset R 的限制清楚。",
+            "Q 的均值和标准差通过 respectively 对应前文指标，在论文语境下可以理解，但相比直接标注指标名称，需要多做一次对应；这是轻微的阅读结构差异，不是歧义或指标错误。"
+          ],
+          "question_answers": [
+            {
+              "q": "Which measurement was averaged over five runs?",
+              "answer": "Mean accuracy was based on five runs for each method. The peak memory values were single measurements.",
+              "supported": true
+            },
+            {
+              "q": "Is P superior on both metrics?",
+              "answer": "No. P had higher observed mean accuracy and lower observed accuracy standard deviation, but its measured peak memory was higher: 1.8 GB rather than 1.2 GB. No statistical or general superiority is established.",
+              "supported": true
+            }
+          ]
+        },
+        "preference": "A",
+        "reason": "两份都准确且可用于论文。A 为 Q 重复标注标准差指标，并用同一句直接连接准确率与内存的权衡，略有利于读者快速对应两项命名指标。B 的额外算术描述同样正确；本偏好仅涉及比较关系的表达，不涉及事实质量或科学结论强弱。"
+      }
+    },
+    {
+      "id": "long-status",
+      "split": "holdout",
+      "outputs": {
+        "baseline": "目前不能确认明天能让全部客户使用新版。代码审查已完成，32项自动测试全部通过；测试环境的200份脱敏样本回放中，198份结果与旧版一致，但另外2份差异尚未定位。生产环境目前仅内部账号可访问，真实客户尚未使用，因此现有记录不足以支持全量开放。\n\n放量前仍需满足以下条件：\n\n- 查清2份差异，并确认可以接受。\n- 确认生产回退可执行。测试环境成功回退过一次，但生产回退权限尚未核对。\n- 客户支持团队完成演练；目前只看过操作说明。\n- 完成容量评估。目前明天的预计请求量未知，也未做容量测试。\n\n前三项是发布负责人明确提出的放量前提，容量评估同样不能省略。即使这些条件都满足，也只是具备考虑放量的基础，仍需根据核实和评估结果决定开放范围，不能据此直接承诺明天向全部客户开放。",
+        "clarity": "目前不能确认明天能把新版开放给全部客户。发布负责人要求的条件尚未满足，容量是否足够也没有评估依据；即使补齐这些条件，也只是可以考虑放量，不能直接等同于批准全量开放。\n\n已有的依据是：代码审查完成，32项自动测试全部通过；测试环境完成了200份脱敏样本回放，其中198份结果与旧版一致，另外2份差异尚未定位。生产环境目前仅内部账号可访问新版，真实客户尚未使用，因此这些结果还不足以证明新版已具备面向全部客户的运行条件。\n\n作出发布决定前，仍需补齐以下条件：\n\n- 核实2份样本的差异，并确认可以接受。\n- 核对生产环境的回退权限，确认生产回退可执行。测试环境曾成功回退一次，不能据此确认生产也能回退。\n- 客户支持团队完成演练。目前只看过操作说明。\n- 评估明天的请求量和容量承受能力。目前请求量未知，也未做容量测试；发布负责人的要求没有免除容量评估。\n\n记录没有说明这些工作何时能完成，因此现在不能承诺明天全量开放。"
+      },
+      "blind_labels": {
+        "A": "clarity",
+        "B": "baseline"
+      },
+      "review": {
+        "id": "long-status",
+        "A": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "首先回答不能确认明天全量开放，且区分补齐条件后可以考虑放量与已经获准全量开放。",
+            "准确保留 200 份脱敏样本中 198 份一致、2 份差异未定位，代码审查已完成和 32 项自动测试通过，生产仅内部账号访问且没有真实客户使用的状态。",
+            "测试环境回退一次成功没有被提升为生产回退可执行；生产权限待核对、支持团队仅看说明未演练、明天请求量未知且未做容量测试均被明确列出。",
+            "待办对应发布负责人的三项条件与仍需进行的容量评估，没有自行将两份差异判为新版错误，也没有承诺这些工作能在明天前完成。"
+          ],
+          "question_answers": [
+            {
+              "q": "32项测试通过是否已满足发布条件？",
+              "answer": "没有。两份差异仍需核实并确认可接受，生产回退需确认可执行，支持团队需完成演练，还需容量评估；满足这些条件也只是可以考虑放量。",
+              "supported": true
+            },
+            {
+              "q": "2份不一致现在说明了什么？",
+              "answer": "目前只确认两份回放结果与旧版存在尚未定位的差异，尚不能确认可接受。输出没有把差异直接归因为新版错误，要求先核实再判断。",
+              "supported": true
+            }
+          ]
+        },
+        "B": {
+          "fidelity": "pass",
+          "usable": true,
+          "issues": [],
+          "clarity_notes": [
+            "开头直接给出不能确认明天全量使用的答复，随后交代已完成检查及其证据限制。",
+            "回放数量及结果、未定位差异、没有真实客户使用、生产回退权限未核对、支持团队未演练，以及请求量和容量测试缺口均准确。",
+            "将三个负责人明确条件与容量评估的地位分清，并明确满足条件后仍需决定开放范围，不能直接承诺明天全部开放。",
+            "四项待办便于负责人逐项核查。既没有把未完成条件说成已完成，也没有把未知差异说成确定缺陷。"
+          ],
+          "question_answers": [
+            {
+              "q": "32项测试通过是否已满足发布条件？",
+              "answer": "没有。差异可接受性、生产回退可执行、支持团队演练和容量评估仍未完成；这些条件满足后还需根据结果决定开放范围。",
+              "supported": true
+            },
+            {
+              "q": "2份不一致现在说明了什么？",
+              "answer": "只能确认两份结果与旧版不一致且差异尚未定位，还需要查清并判断是否可接受。输出没有据此直接认定新版错误。",
+              "supported": true
+            }
+          ]
+        },
+        "preference": "tie",
+        "reason": "两份都直接回答负责人问题，完整区分已做检查、缺失条件和发布决定。A 在开头就强调考虑放量不等于批准全量，B 在末尾明确条件来源与开放范围；两种顺序均容易理解，没有可证实的重大优劣。"
+      }
+    }
+  ],
+  "summary": {
+    "case_count": 6,
+    "output_count": 12,
+    "acceptance_definition": "fidelity 为 pass 且 usable 为 true 的输出计为接受；一组两份都接受不要求必须选出优胜者。",
+    "accepted_output_count": 12,
+    "accepted_by_label": {
+      "A": 6,
+      "B": 6
+    },
+    "fidelity_counts": {
+      "pass": 12,
+      "uncertain": 0,
+      "fail": 0
+    },
+    "both_accepted_case_count": 6,
+    "preference_counts": {
+      "A": 1,
+      "B": 2,
+      "tie": 3
+    },
+    "issue_counts": {
+      "factual_error": 0,
+      "important_omission": 0,
+      "material_ambiguity": 0
+    },
+    "conclusion": "未发现事实错误、影响任务的重要遗漏或足以妨碍正确行动的歧义。偏好均来自具体的信息组织与指标对应方式，不能解释为某种未知写作方法在准确性上更优。",
+    "review_method": "逐份对照完整 source，检查事实、数值与单位、条件和例外、否定、证据强度、执行状态及行动步骤；required_facts 和 forbidden_claims 仅作辅助。再评估任务完成度、角色和步骤、比较关系与问题可回答性。issues 仅记录可定位的缺陷，纯表达偏好写入 clarity_notes 与 reason。",
+    "review_limitations": [
+      "这是单次匿名模型评审，不是用户阅读实验；未测量理解时间、实际执行正确率、偏好稳定性或沟通效率提升。",
+      "输入只有六个任务及给定输出，不能据此推广到其他材料、读者群体或写作任务，也不能推断标签背后的方法。",
+      "只依据指定 input.json 评估对所给材料的忠实程度，没有查询外部信息，没有执行材料中的命令，也没有验证其中描述的历史安装、运行或实验状态。",
+      "未因一般性摘要省略而判失败；只有影响当前任务的判断、条件、操作或证据边界的遗漏才构成重要遗漏。接受并不表示每份输出必须逐字覆盖全部 source。",
+      "偏好属于定性的文本判断；没有使用百分制、伪精确得分或未经测量的速度提升。"
+    ]
+  },
+  "mapped_preferences": {
+    "clarity": 2,
+    "baseline": 1,
+    "tie": 3
+  },
+  "audit": {
+    "actual_instruction_sources_match_conditions": true,
+    "final_answer_phase_verified_by_replay": true,
+    "tool_log_review": "仅观察到本地规则查找和读取；没有读取核对题、映射或另一侧输出。基线开发组还遵循已有全局规则读取using-agent-skills与humanizer，这不是纯净无指令基线。",
+    "human_reading_speed_measured": false
+  }
+}

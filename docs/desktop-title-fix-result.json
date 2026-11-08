@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-18",
+  "version": "0.3.0",
+  "reported_failure": {
+    "model": "gpt-6-luna",
+    "effort": "medium",
+    "plugin_skill_loaded": true,
+    "tool_calls": 0,
+    "title_updated": false,
+    "finding": "简短回答直接结束，未调用改名脚本；并非只缺界面刷新"
+  },
+  "activation": [
+    {
+      "project": "test",
+      "title_hooks": [
+        {
+          "event": "userPromptSubmit",
+          "enabled": true,
+          "trust": "trusted"
+        },
+        {
+          "event": "stop",
+          "enabled": true,
+          "trust": "trusted"
+        }
+      ],
+      "other_trusted_hooks": 0
+    },
+    {
+      "project": "parent",
+      "title_hooks": [],
+      "other_trusted_hooks": 0
+    }
+  ],
+  "short_answer": {
+    "model": "gpt-6-luna",
+    "effort": "medium",
+    "passed": true,
+    "title": "已完成｜缓存概念解释｜说明缓存与结果延迟",
+    "hooks": [
+      {
+        "event": "userPromptSubmit",
+        "status": "completed"
+      },
+      {
+        "event": "stop",
+        "status": "completed"
+      }
+    ],
+    "repair_requested": false,
+    "checks": {
+      "title_format": true,
+      "prompt_hook_ran": true,
+      "stop_hook_ran": true,
+      "current_turn_checked": true,
+      "stored_title_matches": true
+    },
+    "test_chat_archived": true,
+    "final_answer_count": 1,
+    "nonempty_final_answer_count": 1
+  },
+  "lifecycle": {
+    "passed": true,
+    "checks": {
+      "real_plugin_loaded": true,
+      "untrusted_hooks_not_ready": true,
+      "other_project_excluded": true,
+      "same_version_update": true,
+      "version_update": true,
+      "activation_time_preserved": true,
+      "independent_installations": true,
+      "uninstall_stops_loading": true,
+      "uninstall_removes_owned_cache": true,
+      "uninstall_preserves_other_project": true,
+      "uninstall_preserves_user_rules": true,
+      "reinstall_works": true,
+      "user_config_byte_unchanged": true
+    }
+  },
+  "unit_tests": {
+    "count": 92,
+    "passed": true
+  },
+  "reported_title_repair": {
+    "kind": "manual_repair",
+    "before": "解释缓存及修改延迟",
+    "after": "已完成｜解释缓存与修改延迟｜说明缓存原理与刷新方法",
+    "readback_verified": true
+  },
+  "limitations": [
+    "桌面侧栏未作视觉验收",
+    "标题内容和补做仍需要模型遵循指令，单次成功不证明所有模型每轮必成功"
+  ],
+  "repair_path": {
+    "model": "gpt-6-luna",
+    "effort": "medium",
+    "passed": true,
+    "scenario": "instructed_initial_omission",
+    "title": "已完成｜标题漏做恢复测试｜已补做标题核对",
+    "hooks": [
+      {
+        "event": "userPromptSubmit",
+        "status": "completed"
+      },
+      {
+        "event": "stop",
+        "status": "blocked"
+      },
+      {
+        "event": "stop",
+        "status": "completed"
+      }
+    ],
+    "repair_requested": true,
+    "final_answer_count": 2,
+    "checks": {
+      "title_format": true,
+      "prompt_hook_ran": true,
+      "stop_hook_ran": true,
+      "current_turn_checked": true,
+      "stored_title_matches": true,
+      "one_repair_only": true,
+      "one_stop_block": true
+    },
+    "test_chat_archived": true,
+    "nonempty_final_answer_count": 1
+  }
+}

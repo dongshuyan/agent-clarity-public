@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "provenance": "本项目编写的假设材料，非真实运行记录。onboarding 的任务形式参考 GPT with Taste 的公开上手案例；其余为独立构造的日常说明任务。",
+  "cases": [
+    {
+      "id": "onboarding",
+      "split": "development",
+      "prompt": "给刚装好工具的非技术同事写一段中文上手说明，让他知道现在怎么开始、哪些功能还不能算可用。直接交付说明，不写制作过程。",
+      "source": "假设产品 Atlas。主助手已安装，一次真实请求确认主规则加载。新建会话即可使用，不需要更换模型。可选的逐轮提醒插件已安装，两个事件钩子被发现，但尚未完成信任；一次任务中没有收到提醒。提醒不是主助手工作的前提。子助手文件已放到目录，实际加载尚未验证。原有模型和权限配置没有改动。安装器的12项本地测试通过；这些测试没有验证提醒的真实投递。",
+      "required_facts": ["新建会话即可开始使用主助手", "主规则已经一次真实请求验证", "提醒可选且尚未信任，已测任务没有投递", "子助手只是文件已安装，加载未验证", "没有更换模型或权限"],
+      "forbidden_claims": ["全部功能已经生效", "本地测试证明提醒可用", "必须先启用提醒才能使用主助手"],
+      "questions": [{"q": "现在可以怎么开始？", "answer": "新建会话使用主助手"}, {"q": "提醒和子助手是否都已验证？", "answer": "都没有；主助手已验证"}]
+    },
+    {
+      "id": "cache",
+      "split": "development",
+      "prompt": "向不写代码的产品同事解释：为什么刚修改了库存，页面可能仍显示旧数量？根据材料说明机制和范围。",
+      "source": "假设系统把读取到的库存结果缓存60秒。缓存尚未过期时，页面使用缓存，不查数据库。缓存过期后，下一次读取才查询数据库并更新缓存。库存写入直接更新数据库，但不会主动清理缓存。材料没有网络或写入故障的证据。",
+      "required_facts": ["缓存暂存读取结果", "有效期60秒", "数据库修改不会清理已有缓存", "过期后的下一次读取才更新"],
+      "forbidden_claims": ["恰好每60秒后台刷新", "数据库没有保存成功", "缓存永久不变"],
+      "questions": [{"q": "数据库已改是否意味着页面马上变化？", "answer": "不一定，旧缓存还可能有效"}, {"q": "缓存过期瞬间是否一定刷新？", "answer": "不是，要等下一次读取"}]
+    },
+    {
+      "id": "options",
+      "split": "development",
+      "prompt": "根据材料比较两个假设方案，给出适合当前需求的建议，并说明什么时候应重新考虑。",
+      "source": "团队当前每天处理80条记录，只要求当天完成，月预算上限300元。方案A每月100元，保证每天批量处理一次，最多500条；不能即时处理。方案B每月280元，支持即时处理，最多每天200条。两者准确性相同，均需人工复核异常记录。未来是否需要即时结果尚未决定。价格与能力仅是本题假设。",
+      "required_facts": ["当前80条每天且当天完成", "A满足当前要求，每月100元", "B即时处理每月280元且每日上限200", "两者异常都需人工复核", "未来即时要求未确定"],
+      "forbidden_claims": ["A支持即时处理", "B精度更高", "未来需求已确定", "B能处理每天500条"],
+      "questions": [{"q": "当前优先哪个方案，为什么？", "answer": "A，满足日内完成和容量要求且费用更低"}, {"q": "如果未来要即时结果，需要重新看什么？", "answer": "是否改用B以及B每日200条的容量限制"}]
+    },
+    {
+      "id": "status",
+      "split": "development",
+      "prompt": "用户问“超时问题修好了吗？”请根据记录直接回答，并给出下一步。",
+      "source": "假设开发记录：已把连接超时从5秒调到10秒；本地四个测试中三个通过，一个大文件上传测试仍超时；没有进行浏览器测试；没有部署。开发者猜测剩余问题与服务器负载有关，但尚未测量负载。",
+      "required_facts": ["还没有完全修好", "已调超时5秒到10秒", "四个本地测试三个通过一个仍失败", "浏览器未测且未部署", "负载只是未证实的猜测"],
+      "forbidden_claims": ["已经全部修复", "服务器负载就是根因", "线上已恢复", "测试全部通过"],
+      "questions": [{"q": "能否说已经修好上线？", "answer": "不能，仍有失败且未部署"}, {"q": "下一步应验证什么？", "answer": "复现并定位仍失败的大文件上传，不能把负载猜测当根因"}]
+    },
+    {
+      "id": "import",
+      "split": "holdout",
+      "prompt": "把材料改成给新同事用的中文导入操作说明。保留会改变操作结果的条件，避免让同事反复回读。",
+      "source": "假设导入工具：先用 preview 查看映射和错误；preview 不写数据。CSV必须包含 customer_id 列，空值所在行被拒绝。同一文件内重复的 customer_id 只保留最后一行。正式 import 会覆盖数据库中已有相同 customer_id 的记录。只有在确认预览无错误且已备份受影响记录后，才允许执行 import。没有提供回滚命令。",
+      "required_facts": ["先preview且不写数据", "customer_id必需，空值行被拒绝", "文件内重复ID只保留最后一行", "import覆盖数据库同ID记录", "预览无错且备份受影响记录后才可import", "未给出回滚命令"],
+      "forbidden_claims": ["preview会导入", "重复ID全部拒绝", "import只新增不覆盖", "编造可执行回滚命令"],
+      "questions": [{"q": "何时可以正式导入？", "answer": "预览无错误并已备份受影响记录后"}, {"q": "同一个ID重复会发生什么？", "answer": "文件内取最后一行，正式导入覆盖数据库同ID记录"}]
+    },
+    {
+      "id": "academic",
+      "split": "holdout",
+      "prompt": "Write a short results paragraph in English for a paper using only the supplied hypothetical observations. Keep the terminology and evidence strength precise.",
+      "source": "Hypothetical observations on Dataset K only: model A accuracy 84.2% ± 0.3 percentage points; model B accuracy 83.9% ± 0.5 percentage points. The ± values are standard deviations across three runs, not confidence intervals. No statistical significance test or causal experiment was performed. Dataset K is the only evaluated dataset.",
+      "required_facts": ["Dataset K only", "A 84.2% ± 0.3 percentage points", "B 83.9% ± 0.5 percentage points", "standard deviations across three runs", "no statistical significance or causal conclusion"],
+      "forbidden_claims": ["statistically significant improvement", "confidence intervals", "generalizes across datasets", "a mechanism caused the difference"],
+      "questions": [{"q": "What does ± represent?", "answer": "Standard deviation over three runs"}, {"q": "Is the difference statistically established or causal?", "answer": "Neither is established by these observations"}]
+    },
+    {
+      "id": "already-clear",
+      "split": "holdout",
+      "prompt": "检查这句话是否容易理解；若已经清楚就保留原文。只返回最终句子。",
+      "source": "按 Ctrl+S 保存，然后关闭窗口。",
+      "required_facts": ["Ctrl+S保存", "先保存后关闭"],
+      "forbidden_claims": ["增加无来源的保存位置", "关闭后保存", "附带一段修改说明"],
+      "questions": [{"q": "先做什么？", "answer": "按Ctrl+S保存"}]
+    },
+    {
+      "id": "scope",
+      "split": "holdout",
+      "prompt": "用户说“既然演练通过，今晚就能放心切换了吧？”请根据材料给出清楚、客观的回应，说明这个结论成立到什么程度。",
+      "source": "假设迁移记录：在脱敏副本上完成了一次演练，核对了100条抽样记录，全部一致。没有核对其余记录；没有验证生产环境的权限设置；回退步骤只写了文档，尚未演练。今晚是否有维护窗口尚未确认。用户希望知道是否已具备切换条件。",
+      "required_facts": ["一次副本演练和100条抽样一致", "其余记录没有核对", "生产权限未验证", "回退仅文档未演练", "维护窗口未知", "现有材料不足以确认今晚可切换"],
+      "forbidden_claims": ["所有数据已验证一致", "生产已经验证", "回退已验证可行", "今晚窗口已安排"],
+      "questions": [{"q": "演练通过证明了什么？", "answer": "副本的一次演练中100条抽样一致"}, {"q": "现在能否确认今晚切换条件具备？", "answer": "不能，还缺数据范围、生产权限、回退验证和维护窗口确认"}]
+    }
+  ]
+}

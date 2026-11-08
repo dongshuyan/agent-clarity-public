@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-19",
+  "plugin_version": "0.5.0",
+  "codex_version": "0.163.0-alpha.10.2",
+  "installed_homes": 10,
+  "all_home_hooks_ready": true,
+  "unrelated_config_preserved": true,
+  "migrated_title_records": 13,
+  "harbor_history_sources": 4,
+  "new_harbor_homes_inherit_without_activation_copy": true,
+  "unit_tests": {
+    "count": 122,
+    "passed": true
+  },
+  "real_model": "gpt-6-luna",
+  "real_effort": "max",
+  "real_turns": {
+    "new-chat": {
+      "title": "已完成｜解释什么是缓存｜已用一句话说明缓存",
+      "checks": {
+        "prompt_hook": true,
+        "stop_hook": true,
+        "this_turn_checked": true,
+        "title_readback": true,
+        "three_parts": true
+      },
+      "passed": true,
+      "hooks": [
+        {
+          "event": "userPromptSubmit",
+          "status": "completed"
+        },
+        {
+          "event": "stop",
+          "status": "completed"
+        }
+      ]
+    },
+    "resumed-harbor-account": {
+      "title": "已完成｜解释什么是缓存｜补充生活例子说明缓存",
+      "checks": {
+        "prompt_hook": true,
+        "stop_hook": true,
+        "this_turn_checked": true,
+        "title_readback": true,
+        "three_parts": true
+      },
+      "passed": true,
+      "hooks": [
+        {
+          "event": "userPromptSubmit",
+          "status": "completed"
+        },
+        {
+          "event": "stop",
+          "status": "completed"
+        }
+      ]
+    },
+    "preexisting-chat": {
+      "title": "已完成｜解释缓存｜说明缓存到期后的更新时机",
+      "checks": {
+        "prompt_hook": true,
+        "stop_hook": true,
+        "this_turn_checked": true,
+        "title_readback": true,
+        "three_parts": true
+      },
+      "passed": true,
+      "hooks": [
+        {
+          "event": "userPromptSubmit",
+          "status": "completed"
+        },
+        {
+          "event": "stop",
+          "status": "completed"
+        }
+      ]
+    }
+  },
+  "credential_free_local_title_api": true,
+  "current_existing_chat_same_name_in_four_homes": true,
+  "test_chats_archived": true,
+  "limitations": [
+    "未执行桌面侧栏视觉验收；执行与持久化通过原生事件和API核对。",
+    "未登录检查覆盖本地标题接口和事件脚本入口；没有可用模型来源时不能生成对话回合。",
+    "每轮提醒和一次补做已启用；仍依赖模型执行脚本，不宣称任意模型每次必成功。"
+  ],
+  "corrected_test_setup": [
+    "首次另一账户续聊绕过其Harbor登录桥，因临时凭据未注入返回401。改用该账户正在使用的正式Harbor后端后，同一会话续聊和自动核对通过。"
+  ]
+}

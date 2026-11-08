@@ -1,0 +1,196 @@
+{
+  "version": 2,
+  "provenance": "public-onboarding原材料逐字来自NB-Corp/gpt-with-taste MIT公开案例，固定版本079fb262b4d7932515ba4e6341fd57b6f2122f4a；只作历史写作任务，不代表当前本机状态。options-regression复用首轮回归题。其余为独立构造的假设材料，holdout未用于本轮规则修改。",
+  "source_url": "https://github.com/NB-Corp/gpt-with-taste/blob/079fb262b4d7932515ba4e6341fd57b6f2122f4a/docs/cases/codex-first-use/source/notes.md",
+  "cases": [
+    {
+      "id": "public-onboarding",
+      "split": "development",
+      "prompt": "根据这份公开案例的历史安装记录，给刚装好的同事写中文上手说明。读者想尽快知道怎么开始，再了解必要限制和恢复方法。只返回说明正文；不要执行、验证记录中的操作，也不要把这份记录当成本机状态。",
+      "source": "# Codex 配置安装记录\n\n## 安装的内容\n\n本机 Codex home 为 `<CODEX_HOME>`。已经安装 GPT with Taste 的完整英文 Main 和 Sub 两份提示词；对话语言跟随用户，项目产物沿用项目语言。\n\n`config.toml` 的顶层 `model_instructions_file` 已指向 `<CODEX_HOME>/prompts/gpt-with-taste/main.md`。正常打开新的 Codex 会话就使用这份 Main，不需要选择 controller、另加 profile 参数或使用定制启动器。所选模型和 provider、effort、权限、MCP、skills、AGENTS、并发配置保持原样。\n\n一轮真实的 GPT-6.1 Sol/high 请求已经记录到与作者源相同的完整 Main 正文。完整 Sub 文件也已安装，但安装器没有改动或自动替换用户已有子角色。实际子角色的 developer 指令能加载；此前子角色的 `model_instructions_file` 设置没有将继承的 Main base 换成 Sub。所选子角色可以通过支持的 `developer_instructions` 通道组合完整 Sub，组合的真正子会话投递还未检查。\n\n## 可选的逐轮提醒\n\n正式插件 `gpt-with-taste@gpt-with-taste-local` 已通过 Codex 的 marketplace/plugin CLI 安装。插件缓存包含当前三份提醒源：用户输入给 Main、子任务输入给 Sub、已完成子任务的 wait_agent 结果给 Main。脚本保留原任务和工具结果，不改写它们。\n\n三个 Hook 定义均已被正常发现并开启：`UserPromptSubmit`、`SubagentStart`、`PostToolUse`（matcher `^wait_agent$`）。当前三项的 `trustStatus` 都是 `untrusted`。\n\nCodex 的正式审查入口是使用同一 home 的交互终端 `/hooks`。用户在这里审查并信任该插件的这三个定义；命令均指向插件的 `hooks/steer.mjs`。当前公开 app-server API 提供 `hooks/list`，没有对应的 Hook 信任批准方法。安装器没有手写 trust 文件或 hash，没有设置全局 bypass。\n\n在已完成的一轮正常 `exec resume` 父子任务中，三路提醒都没有投递，审计文件也没有产生。原用户输入与子任务结果都保留单份；任务本身完成。插件安装检查与事件投递是两项状态。通过 `/hooks` 完成信任后，还需沿自然任务核提醒实际到达对应消费者。\n\n## 已做的检查与恢复\n\n安装器有 17 个 fixture 检查，另有一项真实 CLI 集成检查；安装、更新、旧 Hook 去重、保留原恢复值和恢复路径已检查。真实 home 的 install、check、restore dry-run 均正常结束。没有执行真实卸载。\n\n恢复只使用同一 clone 下的一份私有 `.gpt-with-taste/install-receipt.json`。多次安装保留首次安装前的 `model_instructions_file` 与受管文件基线，没有累积备份副本。旧的中性提示词文件保留在原位置。\n\n恢复入口是在当前 clone 根运行：\n\n```sh\nnode scripts/install.mjs --restore --home \"<CODEX_HOME>\" --dry-run\nnode scripts/install.mjs --restore --home \"<CODEX_HOME>\"\n```\n\n可选插件恢复连预览也需要可用的 Codex CLI。记录的 CLI 路径是 `<CODEX_CLI>`；它不可用时，可加 `--codex` 指向可用的 CLI。\n\n源码在独立 Git 仓库 GPT with Taste 管理；公开仓为 `https://github.com/NB-Corp/gpt-with-taste`。本机上述插件安装源码还未推送到公开仓；README 展示制作当前暂停。\n",
+      "required_facts": [
+        "新建普通会话即使用Main，不用改模型或专门启动器",
+        "Main通过一次真实请求核对",
+        "逐轮提醒可选，三个Hook尚未信任且已测任务未投递",
+        "完整Sub文件已装，真正子会话组合投递尚未核对",
+        "模型provider effort权限等保持原状",
+        "需要提醒时在同home的/hooks审查，然后验证实际投递",
+        "恢复在原clone，用同一私有receipt，先dry-run再restore",
+        "CLI不可用时用--codex指向可用CLI"
+      ],
+      "forbidden_claims": [
+        "所有功能均已生效",
+        "需要先信任提醒才能用Main",
+        "本地检查证明提醒已到达",
+        "Sub已替换所有子角色"
+      ],
+      "questions": [
+        {
+          "q": "刚装好的同事现在怎样开始？",
+          "answer": "正常打开新Codex会话即可，无需改模型或启动方式"
+        },
+        {
+          "q": "是否必须先让提醒生效？",
+          "answer": "不必，它是可选项；目前尚未投递"
+        },
+        {
+          "q": "怎么恢复？",
+          "answer": "在原clone使用原receipt，先运行restore dry-run再restore"
+        }
+      ]
+    },
+    {
+      "id": "dense-procedure",
+      "split": "development",
+      "prompt": "这段说明事实没有错，但同事需要读好几遍。改写成容易照做的操作说明，保留全部会影响操作的条件。",
+      "source": "假设发布流程规定：仅在值班人已经确认当晚维护窗口且核对报表没有差异的情况下，执行人才能于窗口内发起切换；若核对报表存在差异，执行人须先把差异交给数据负责人核实，只有数据负责人确认差异为预期结果并在工单注明后才可按前述窗口要求继续，未确认时不得切换；切换后执行人需要观察十分钟，这十分钟内一旦出现连续两次写入失败，就停止新写入并通知值班人，由值班人决定是否回退，执行人不得自行回退；十分钟内没有出现这一触发条件时，可结束本次观察，但这不代表后续运行不会发生问题。",
+      "required_facts": [
+        "值班人确认窗口且窗口内切换",
+        "无差异可继续，有差异需数据负责人确认预期并记工单",
+        "未确认差异不得切换",
+        "切换后观察十分钟",
+        "连续两次写入失败触发停止新写入并通知",
+        "值班人决定回退，执行人不能自行回退",
+        "观察结束不保证后续无问题"
+      ],
+      "forbidden_claims": [
+        "一次写入失败立即回退",
+        "执行人自行决定回退",
+        "无差异即可在任何时间切换",
+        "未出现故障证明后续安全"
+      ],
+      "questions": [
+        {
+          "q": "有差异但维护窗口已确认，可以切换吗？",
+          "answer": "还不行，数据负责人需确认差异是预期结果并在工单注明"
+        },
+        {
+          "q": "连续两次写入失败后谁决定回退？",
+          "answer": "值班人；执行人停止新写入并通知"
+        }
+      ]
+    },
+    {
+      "id": "options-regression",
+      "split": "development",
+      "prompt": "根据材料比较两个假设方案，给出适合当前需求的建议，并说明什么时候应重新考虑。",
+      "source": "团队当前每天处理80条记录，只要求当天完成，月预算上限300元。方案A每月100元，保证每天批量处理一次，最多500条；不能即时处理。方案B每月280元，支持即时处理，最多每天200条。两者准确性相同，均需人工复核异常记录。未来是否需要即时结果尚未决定。价格与能力仅是本题假设。",
+      "required_facts": [
+        "当前80条每天且当天完成",
+        "A满足当前要求，每月100元",
+        "B即时处理每月280元且每日上限200",
+        "两者异常都需人工复核",
+        "未来即时要求未确定"
+      ],
+      "forbidden_claims": [
+        "A支持即时处理",
+        "B精度更高",
+        "未来需求已确定",
+        "B能处理每天500条"
+      ],
+      "questions": [
+        {
+          "q": "当前优先哪个方案，为什么？",
+          "answer": "A，满足日内完成和容量要求且费用更低"
+        },
+        {
+          "q": "如果未来要即时结果，需要重新看什么？",
+          "answer": "是否改用B以及B每日200条的容量限制"
+        }
+      ]
+    },
+    {
+      "id": "offline-draft",
+      "split": "holdout",
+      "prompt": "给不懂技术的客服解释“页面明明写了已保存，为什么换台电脑看不到？”让他能准确回答客户，不要承诺材料没有说明的恢复能力。",
+      "source": "假设编辑器每次修改后把草稿保存在当前浏览器本地，页面此时显示“已保存到此设备”。网络可用时才尝试上传，服务器确认接收后才显示“已同步”。另一台电脑只读取服务器上的版本。网络恢复会触发上传尝试，但不保证一定成功。用户在同一浏览器中重新打开同一份草稿，可以读取仍然存在的本地副本；清除该浏览器数据会删掉本地副本。材料没有说明是否存在服务器历史版本或其他备份。",
+      "required_facts": [
+        "本地保存与服务器同步不同",
+        "另一台电脑只读服务器版本",
+        "服务器确认后才显示已同步",
+        "网络恢复触发尝试但不保证成功",
+        "同浏览器可读取仍在的本地副本",
+        "清浏览器数据会删本地副本",
+        "没有服务器历史版本或其他备份信息"
+      ],
+      "forbidden_claims": [
+        "已保存意味着云端已备份",
+        "网络恢复必定同步成功",
+        "找不到就可从历史备份恢复"
+      ],
+      "questions": [
+        {
+          "q": "另一台电脑什么时候能读到这次修改？",
+          "answer": "服务器成功收到这次修改后，而不是仅本地保存后"
+        },
+        {
+          "q": "此时清浏览器数据有什么影响？",
+          "answer": "会删除本地草稿副本，材料不保证还有其他备份"
+        }
+      ]
+    },
+    {
+      "id": "paper-fidelity",
+      "split": "holdout",
+      "prompt": "Write one clear results paragraph for a paper. Use only these hypothetical observations, preserve the named metrics, and make the comparison easy to follow.",
+      "source": "On Dataset R only, Method P achieved mean accuracy of 91.4% with a standard deviation of 0.2 percentage points over five runs. Method Q achieved mean accuracy of 91.1% with a standard deviation of 0.4 percentage points over five runs. P used 1.8 GB peak memory and Q used 1.2 GB peak memory under the same measured setup. The memory values are single measurements, not five-run means. No significance test, causal ablation, or evaluation on other datasets was performed.",
+      "required_facts": [
+        "Dataset R only",
+        "P mean91.4%, SD0.2pp over5runs",
+        "Q mean91.1%, SD0.4pp over5runs",
+        "memory P1.8GB Q1.2GB same setup single measurements",
+        "no significance test or causal ablation",
+        "no other datasets"
+      ],
+      "forbidden_claims": [
+        "significant accuracy gain",
+        "memory average over five runs",
+        "proven causal mechanism",
+        "general performance superiority"
+      ],
+      "questions": [
+        {
+          "q": "Which measurement was averaged over five runs?",
+          "answer": "Accuracy; memory values were each measured once"
+        },
+        {
+          "q": "Is P superior on both metrics?",
+          "answer": "No; P has higher observed mean accuracy and higher measured peak memory"
+        }
+      ]
+    },
+    {
+      "id": "long-status",
+      "split": "holdout",
+      "prompt": "负责人只想知道“明天能把新版给全部客户用吗？”请根据记录答复，讲清依据和仍缺的条件。",
+      "source": "假设记录：新版已部署到测试环境，在200份脱敏样本上完成回放，198份结果与旧版一致，另外2份差异尚未定位。生产环境目前只有内部账号能访问新版，真实客户尚未使用。回退按钮在测试环境点过一次成功，但生产的回退权限尚未核对。客户支持团队已经看过操作说明，但没有完成演练。明天预计的请求量未知，没有做容量测试。代码审查已完成，自动测试32项全部通过。发布负责人要求：差异核实后确认可接受、生产回退可执行、支持团队完成演练，才考虑放量。该要求没有取消容量评估。",
+      "required_facts": [
+        "现有证据不足以确认明天全部客户使用",
+        "200份样本198一致2未定位",
+        "生产仅内部账号访问，无客户实用验证",
+        "生产回退权限未核对",
+        "支持团队未演练",
+        "明天量未知未容量测试",
+        "32自动测试通过且代码审查完不能代替上线条件",
+        "放量需差异可接受、回退可执行、支持演练且容量评估仍需考虑"
+      ],
+      "forbidden_claims": [
+        "200份全部一致",
+        "所有发布条件已满足",
+        "已有真实客户验证",
+        "生产回退已可用",
+        "自动测试通过证明容量足够"
+      ],
+      "questions": [
+        {
+          "q": "32项测试通过是否已满足发布条件？",
+          "answer": "没有，差异、生产回退、支持演练、容量仍有缺口"
+        },
+        {
+          "q": "2份不一致现在说明了什么？",
+          "answer": "差异尚未定位，不能判定可接受，也不能直接断定新版错误"
+        }
+      ]
+    }
+  ]
+}

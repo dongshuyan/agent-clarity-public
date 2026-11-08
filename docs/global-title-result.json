@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-19",
+  "version": "0.4.0",
+  "scope": "global",
+  "codex_version": "0.163.0-alpha.10.2",
+  "installation": {
+    "runtime_ready": true,
+    "userPromptSubmit": "trusted",
+    "stop": "trusted",
+    "project_package_uninstalled": true,
+    "migrated_title_records": 8
+  },
+  "local_install_checks": {
+    "config.toml_original_preserved": true,
+    "config.toml_backup_private": true,
+    "AGENTS.md_original_preserved": true,
+    "AGENTS.md_backup_private": true,
+    "source_matches_cache": true,
+    "project_inactive": true,
+    "cli_review_added_settings": [
+      "hooks",
+      "tui.model_availability_nux",
+      "projects.<project>"
+    ]
+  },
+  "unit_tests": {
+    "passed": true,
+    "count": 112
+  },
+  "isolated_lifecycle": {
+    "passed": true,
+    "checks": {
+      "real_plugin_loaded": true,
+      "untrusted_hooks_not_ready": true,
+      "other_project_excluded": true,
+      "same_version_update": true,
+      "version_update": true,
+      "activation_time_preserved": true,
+      "independent_installations": true,
+      "uninstall_stops_loading": true,
+      "uninstall_removes_owned_cache": true,
+      "uninstall_preserves_other_project": true,
+      "uninstall_preserves_user_rules": true,
+      "reinstall_works": true,
+      "user_config_byte_unchanged": true,
+      "global_loads_in_two_repos_and_non_git": true,
+      "global_untrusted_hooks_not_ready": true,
+      "global_update_keeps_original_config": true,
+      "global_transition_removes_duplicate_project": true,
+      "global_uninstall_stops_non_git_loading": true,
+      "global_uninstall_restores_config": true,
+      "global_uninstall_preserves_rules": true,
+      "global_uninstall_keeps_independent_project": true,
+      "global_reinstall_works": true
+    }
+  },
+  "live_model": {
+    "model": "gpt-6-luna",
+    "effort": "medium",
+    "checks": {
+      "existing_and_new_across_directories": true,
+      "test_chats_archived": true
+    },
+    "turns": {
+      "existing_non_git_chat": {
+        "title": "已完成｜解释缓存｜补充办公室类比",
+        "checks": {
+          "three_parts": true,
+          "prompt_hook_ran": true,
+          "stop_hook_ran": true,
+          "this_turn_checked": true,
+          "title_readback_matches": true,
+          "cwd_has_no_local_state": true
+        },
+        "passed": true,
+        "hooks": [
+          {
+            "event": "userPromptSubmit",
+            "status": "completed"
+          },
+          {
+            "event": "stop",
+            "status": "completed"
+          }
+        ]
+      },
+      "new_git_chat_repair_test": {
+        "title": "已完成｜标题漏做恢复测试｜已答缓存定义并完成标题核对",
+        "checks": {
+          "three_parts": true,
+          "prompt_hook_ran": true,
+          "stop_hook_ran": true,
+          "this_turn_checked": true,
+          "title_readback_matches": true,
+          "cwd_has_no_local_state": true,
+          "one_stop_block": true,
+          "one_repair_requested": true
+        },
+        "passed": true,
+        "hooks": [
+          {
+            "event": "userPromptSubmit",
+            "status": "completed"
+          },
+          {
+            "event": "stop",
+            "status": "blocked"
+          },
+          {
+            "event": "stop",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    "passed": true
+  },
+  "limitations": [
+    "当前Codex home的本地会话；不自动部署到其他账户或云端",
+    "未做桌面侧栏视觉验收",
+    "接管没有保护记录的旧普通标题时无法识别是否曾手动修改",
+    "quick_validate.py缺少PyYAML，未报告通过"
+  ],
+  "clean_export": {
+    "passed": true,
+    "unit_tests": 112,
+    "reference_and_local_state_excluded": true
+  }
+}

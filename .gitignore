@@ -1,0 +1,31 @@
+# Downloaded research material and independent upstream checkouts.
+/reference/
+
+# Local sessions, evaluation runs, machine-specific state and diagnostics.
+/.local/
+/.agent-workbench/
+/evals/runs/
+/.codex/*.local.*
+/.codex/hooks.json
+/.codex/config.toml
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+
+# Credentials never belong in this repository.
+.env
+.env.*
+!.env.example
+auth.json
+credentials.json
+*.pem
+*.key
+
+# Tool caches and generated files.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+.DS_Store
