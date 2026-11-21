@@ -58,6 +58,17 @@ class PluginLifecycleTests(unittest.TestCase):
         self.installer.uninstall()
         self.assertTrue(json.loads((other / '.local/title-installation.json').read_text())['enabled'])
 
+    def test_package_update_preserves_hook_approvals_inserted_by_codex(self):
+        self.installer.configure()
+        config = self.installer.config
+        marker = '# agent-clarity-titles:end'
+        # Codex's config writer can append tables just before the trailing comment.
+        with_approval = config.read_text().replace(marker,
+            '[hooks.state."example-hook"]\ntrusted_hash = "previously-reviewed"\n' + marker)
+        config.write_text(with_approval)
+        self.installer.configure()
+        self.assertEqual(config.read_text(), with_approval)
+
     def test_does_not_install_in_subfolder_or_without_git_root(self):
         child = self.root / 'child'; child.mkdir()
         with self.assertRaises(InstallError):

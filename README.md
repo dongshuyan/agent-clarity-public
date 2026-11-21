@@ -33,10 +33,11 @@ S2·41分｜实现中｜修复登录超时｜验证重试逻辑
 ```text
 S2·18分｜调研中｜比较向量数据库｜筛选官方文档与论文
 S3·63分｜方案中｜设计会话交接方案｜整理风险与迁移步骤
+S1·2分（窗口未知）｜实现中｜修复登录超时｜补充超时测试
 未评分｜待确认｜设计会话交接方案｜等待确认风险边界
 ```
 
-这些是格式示例。`未评分`表示当前缺少可靠数据或语义自检没有提交成功，不等于 0 分。
+这些是格式示例。`S1·2分（窗口未知）` 表示本轮只能按轮数和压缩次数给出基础分，上下文可能已经很满。`未评分` 表示缺少必要数据或本轮语义自检未成功。
 
 用户手动修改过的标题段会被保留。评分前缀也是独立的机器字段；如果直接手动修改评分前缀，自动更新评分前缀会暂停，但三段式标题仍可继续维护。
 
@@ -56,12 +57,14 @@ S3/S4 的流程是：当前 Codex 模型正常回答用户，同时在同一回�
 - S3 的语义增量最多 9 分。
 - S4 的语义增量最多 15 分。
 - 模型漏交、超时、返回未知标签或 JSON 无效时，当前探测显示 `未评分`。
-- 非探测回合显示最近一次确定性的 S2 分数。
+- 非探测回合按本轮数据计算 S2。参考模式下若只缺窗口，标题临时显示带“窗口未知”的 S1 基础分。
 - S3/S4 只读取有上限的材料，不读取完整 transcript；S4 最多保留最近 3 个根回合，每轮用户和助手内容最多 900 个字符。
 
 S1–S4 的回合数从插件开始监控后计算，按根会话提示回合去重；不会声称补齐安装前的历史回合。工具调用和内部子代理不单独增加回合数。
 
-S2 默认使用模型目录中的参考上下文窗口。Codex Hook 当前提供输入 token 数，但不总是提供会话临时使用的实际窗口，因此分数可能是估算值。需要严格模式时，可以改为只接受实际窗口：
+**更换模型无需调整插件。** S1 只用对话轮数和压缩次数。S2 用本次输入的 token 数除以当前模型的上下文窗口，也就是这一轮能容纳的 token 数。Codex 提供实际窗口时直接使用；仅有输入量时，默认按当前账户里该模型的参考窗口估算。目录补齐或后续请求提供实际窗口后，插件自动恢复完整评分。S3/S4 的自检跟随当前对话正在用的模型。
+
+如果只接受实际窗口，可以切到严格模式。缺少实际窗口时会显示 `未评分`。
 
 ```sh
 python3 scripts/session_monitor.py configure --window-mode actual_only
@@ -73,7 +76,7 @@ python3 scripts/session_monitor.py configure --window-mode reference
 需要 Python 3.11+、Git，以及支持模型请求 Hooks 的 Codex。脚本按 macOS/Linux 设计；当前真实联测在 macOS，Linux 尚未做完整实机联测，Windows 尚未验证。
 
 ```sh
-git clone https://github.com/dongshuyan/agent-clarity-public.git
+git clone https://github.com/dongshuyan/agent-clarity-public.git agent-clarity
 cd agent-clarity
 ```
 
@@ -169,7 +172,7 @@ python3 scripts/title_plugin.py uninstall --global
 python3 -m unittest discover -s tests -v
 ```
 
-真实评分联测会消耗当前账户额度，并固定使用 `gpt-6-luna / low`：
+真实评分联测会消耗当前账户额度，默认测试模型为 `gpt-6-luna / low`。
 
 ```sh
 python3 tests/live_session_scores.py --execute

@@ -10,8 +10,10 @@ import os
 from pathlib import Path
 import secrets
 import shlex
+import stat
 import sys
 import time
+import tomllib
 
 from clarity_rpc import CodexRPC
 from title_runtime import (
@@ -54,6 +56,9 @@ MAX_HISTORY_FILE_BYTES = 64_000
 TOOL_STATUS_LABELS = {'completed', 'success', 'failed', 'error', 'cancelled', 'unknown'}
 MAX_HOOK_INPUT_BYTES = 8_000_000
 MAX_TITLE_SNAPSHOT_BYTES = 16_384
+MAX_CODEX_CONFIG_BYTES = 2 * 1024 * 1024
+MAX_MODEL_CATALOG_BYTES = 16 * 1024 * 1024
+REFERENCE_SOURCES = {'user_configured', 'reference_catalog', 'reference_cache'}
 
 
 def default_metrics():
@@ -201,37 +206,96 @@ def _usage_value(usage, *names):
     return None
 
 
+def _request_input_tokens(payload):
+    usage = payload.get('token_usage') or payload.get('tokenUsage')
+    if not isinstance(usage, dict):
+        return None
+    # Some native usage envelopes distinguish the last request from lifetime totals.
+    if 'input_tokens' not in usage and 'inputTokens' not in usage:
+        usage = usage.get('last')
+    return _usage_value(usage, 'input_tokens', 'inputTokens')
+
+
+def _reported_window(payload):
+    usage = payload.get('token_usage') or payload.get('tokenUsage')
+    values = [source[key] for source in (payload, usage) if isinstance(source, dict)
+              for key in ('model_context_window', 'modelContextWindow')
+              if source.get(key) is not None]
+    model = payload.get('model') if isinstance(payload.get('model'), str) else None
+    if not values:
+        return None, {'model': model, 'source': 'unknown', 'reason': 'missing_window'}
+    if any(type(n) is not int or n <= 0 or n != values[0] for n in values):
+        return None, {'model': model, 'source': 'unknown', 'reason': 'invalid_reported_window'}
+    return values[0], {'model': model, 'source': 'hook'}
+
+
+def _read_reference_file(path, limit):
+    # A hook has a deadline. Never wait on a named pipe or read an unbounded file.
+    with open(path, 'rb', opener=lambda name, flags: os.open(name, flags | os.O_NONBLOCK)) as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+            raise ValueError('unsupported reference file')
+        data = stream.read(min(info.st_size, limit) + 1)
+        if len(data) != info.st_size:
+            raise ValueError('reference file changed during read')
+        return data
+
+
+def _account_catalog(home):
+    try:
+        raw = _read_reference_file(home / 'config.toml', MAX_CODEX_CONFIG_BYTES)
+    except FileNotFoundError:
+        raw = b''
+    selected = tomllib.loads(raw.decode('utf-8')).get('model_catalog_json')
+    if selected is None:
+        return home / 'models_cache.json', 'reference_cache'
+    if not isinstance(selected, str) or not selected.strip():
+        raise ValueError('invalid configured model catalog')
+    return home / selected, 'reference_catalog'
+
+
 def resolve_window(payload, config):
     """Resolve a measured or explicitly selected reference window, never guess."""
-    usage = payload.get('token_usage') or payload.get('tokenUsage')
-    direct = (_usage_value(payload, 'model_context_window', 'modelContextWindow') or
-              _usage_value(usage, 'model_context_window', 'modelContextWindow'))
-    model = payload.get('model')
-    if direct:
-        return direct, {'source': 'hook', 'model': model}
-    if config.get('window_mode') != 'reference' or not isinstance(model, str):
-        return None, {'source': 'unknown', 'model': model}
+    direct, metadata = _reported_window(payload)
+    if metadata.get('reason') != 'missing_window' or config.get('window_mode') != 'reference':
+        return direct, metadata
+    model = metadata['model']
+    if not model:
+        return None, {'source': 'unknown', 'reason': 'missing_model', 'model': model}
     caveat = '参考窗口估算；无法检测会话内临时覆盖的实际窗口'
     configured = config.get('context_windows', {}).get(model)
     if type(configured) is int and configured > 0:
         return configured, {'source': 'user_configured', 'model': model, 'caveat': caveat}
     home = Path(os.environ.get('CODEX_HOME', str(Path.home()/'.codex')))
-    path = home/'models_cache.json'
+    catalog_source = 'account_config'
     try:
-        value = json.loads(path.read_text())
-        for item in value.get('models', []):
-            if item.get('slug') != model:
-                continue
-            window = _as_int(item.get('context_window'))
-            percent = _as_int(item.get('effective_context_window_percent'))
-            if window and percent and percent <= 100:
-                return window * percent // 100, {
-                    'source': 'reference_cache', 'model': model, 'caveat': caveat,
-                    'catalog_client_version': value.get('client_version'),
-                    'catalog_fetched_at': value.get('fetched_at')}
-    except (OSError, ValueError, AttributeError, TypeError):
-        pass
-    return None, {'source': 'unknown', 'model': model}
+        path, catalog_source = _account_catalog(home)
+        value = json.loads(_read_reference_file(path, MAX_MODEL_CATALOG_BYTES))
+        if not isinstance(value, dict) or not isinstance(value.get('models'), list):
+            raise ValueError('invalid model catalog')
+    except (OSError, ValueError, RecursionError):
+        return None, {'source': 'unknown', 'model': model, 'catalog_source': catalog_source,
+                      'reason': 'unreadable_catalog_or_config'}
+    for item in value['models']:
+        if not isinstance(item, dict) or item.get('slug') != model:
+            continue
+        # Codex uses max_context_window when its optional context_window is absent.
+        raw_window = item.get('context_window')
+        window = _as_int(item.get('max_context_window') if raw_window is None else raw_window)
+        # Native Codex ModelInfo defaults to 95 when the configured catalog
+        # omits this field. Keep the existing cache format's explicit percent.
+        default_percent = 95 if catalog_source == 'reference_catalog' else None
+        percent = _as_int(item.get('effective_context_window_percent', default_percent))
+        if window and percent and percent <= 100 and window * percent >= 100:
+            meta = {'source': catalog_source, 'model': model, 'caveat': caveat}
+            if catalog_source == 'reference_cache':
+                meta.update(catalog_client_version=value.get('client_version'),
+                            catalog_fetched_at=value.get('fetched_at'))
+            return window * percent // 100, meta
+        return None, {'source': 'unknown', 'model': model, 'catalog_source': catalog_source,
+                      'reason': 'invalid_window'}
+    return None, {'source': 'unknown', 'model': model, 'catalog_source': catalog_source,
+                  'reason': 'model_not_listed'}
 
 
 def _main_session(payload):
@@ -248,12 +312,20 @@ def compute_score(metrics, level, config=None):
     config = config or load_config()
     if level not in config['levels']:
         raise ValueError('评分档位未配置')
-    metrics = {**default_metrics(), **(metrics if isinstance(metrics, dict) else {})}
+    metrics = metrics if isinstance(metrics, dict) else {}
+    if level == 'S1':
+        # The baseline is independent of model identity, usage and tool results.
+        metrics = {key: metrics[key] for key in ('round_count', 'compression_count',
+                                                 'compression_observed') if key in metrics}
+    metrics = {**default_metrics(), **metrics}
     level_config = config['levels'][level]
     round_signal = _signal(metrics['round_count'], config['round_limit'])
     compression_signal = (_signal(metrics['compression_count'], config['compression_limit'])
                           if metrics.get('compression_observed') else None)
     ratio = metrics.get('input_ratio')
+    if (config.get('window_mode') == 'actual_only'
+            and metrics.get('window_metadata', {}).get('source') in REFERENCE_SOURCES):
+        ratio = None
     input_signal = ratio if type(ratio) in (int, float) and 0 <= ratio <= 1 else None
     failures = len(metrics.get('failed_turn_ids', []))
     failure_signal = _signal(failures, config['failure_limit']) if metrics.get('failure_observed') else None
@@ -270,14 +342,29 @@ def compute_score(metrics, level, config=None):
     required = set(level_config.get('requires', []))
     unknown = sorted(name for name in required if signals.get(name) is None)
     if unknown:
-        return {
+        result = {
             'level': level,
             'score_status': 'insufficient_data',
             'score': None,
             'unknown': unknown,
             'coverage': {name: signals.get(name) is not None for name in signals},
             'reasons': ['缺少：' + '、'.join(unknown)],
+            'window_metadata': metrics.get('window_metadata', {}),
         }
+        # Keep the S2 contract (no denominator => no S2 score). The title may
+        # separately show S1 when this completed request lacks only a window.
+        if (level == 'S2' and unknown == ['input_ratio']
+                and config.get('window_mode') == 'reference'
+                and metrics.get('window_metadata', {}).get('reason') in {
+                    'model_not_listed', 'missing_model', 'unreadable_catalog_or_config',
+                    'invalid_window'}
+                and _as_int(metrics.get('last_input_tokens')) is not None
+                and not metrics.get('compacting')
+                and metrics.get('input_turn_id') == metrics.get('last_turn_id')):
+            baseline = compute_score(metrics, 'S1', config)
+            if baseline['score_status'] == 'scored':
+                result['baseline'] = {'level': 'S1', 'score': baseline['score']}
+        return result
     weights = {
         'round': level_config.get('round_weight', 0),
         'input_ratio': level_config.get('input_weight', 0),
@@ -291,7 +378,7 @@ def compute_score(metrics, level, config=None):
     reasons = [f'回合压力 {metrics["round_count"]}']
     if input_signal is not None and weights['input_ratio']:
         source = metrics.get('window_metadata', {}).get('source', 'hook')
-        label = '参考窗口' if source in {'reference_cache', 'user_configured'} else '窗口'
+        label = '参考窗口' if source in REFERENCE_SOURCES else '窗口'
         reasons.append(f'最近请求输入占{label} {round(input_signal * 100)}%')
     if compression_signal is not None and metrics.get('compression_count'):
         reasons.append(f'已观测压缩 {metrics["compression_count"]} 次')
@@ -472,7 +559,7 @@ def _result_fingerprint(result):
     return json.dumps([result['level'], result['score_status'],
                        result.get('score', 0) is not None and
                        result.get('score', 0) >= result['notice_threshold'],
-                       result.get('unknown', [])], sort_keys=True)
+                       result.get('unknown', []), 'baseline' in result], sort_keys=True)
 
 
 def _clip_text(value, limit):
@@ -965,7 +1052,12 @@ def accept_semantic_submission(root, thread_id, turn_id, nonce, submission, *, m
         return {'result': 'accepted'}
 
 
-def _update_metrics(metrics, payload):
+def _clear_input(metrics):
+    metrics.update(input_observed=False, last_input_tokens=None, last_model_context_window=None,
+                   input_ratio=None, window_metadata={}, input_samples=[])
+
+
+def _update_metrics(metrics, payload, *, window_reading=None):
     metrics = {**default_metrics(), **(metrics if isinstance(metrics, dict) else {})}
     event = payload.get('hook_event_name')
     turn_id = payload.get('turn_id')
@@ -984,28 +1076,26 @@ def _update_metrics(metrics, payload):
             # A previous turn's sample cannot score a new turn before its first
             # completed root request. Retain only the numeric trend history.
             metrics.update(input_observed=False, input_ratio=None,
-                           last_input_tokens=None, last_model_context_window=None, compacting=False)
+                           last_input_tokens=None, last_model_context_window=None,
+                           window_metadata={}, compacting=False)
             metrics['failed_turn_ids'] = [v for v in metrics.get('failed_turn_ids', [])
                                          if v in metrics['seen_turn_ids'][-20:]]
         # Counts describe the monitored interval, never unobserved past history.
         metrics['compression_observed'] = True
     elif event == 'PostModelRequest' and _main_session(payload):
-        usage = payload.get('token_usage') or payload.get('tokenUsage')
-        input_tokens = _usage_value(usage, 'input_tokens', 'inputTokens')
-        context_window = _usage_value(payload, 'model_context_window', 'modelContextWindow')
-        if context_window is None:
-            context_window = _usage_value(usage, 'model_context_window', 'modelContextWindow')
+        input_tokens = _request_input_tokens(payload)
+        context_window, metadata = window_reading or _reported_window(payload)
+        model = metadata.get('model')
         status = payload.get('status')
         if (status == 'completed' and not metrics.get('compacting')
                 and input_tokens is not None and context_window and input_tokens <= context_window):
             metrics.update(input_observed=True, last_input_tokens=input_tokens,
                            last_model_context_window=context_window,
                            input_ratio=input_tokens / context_window)
-            metadata = payload.get('_window_metadata', {'source':'hook', 'model':payload.get('model')})
-            if (metrics.get('input_model') != payload.get('model') or
+            if (not model or metrics.get('input_model') != model or
                     metrics.get('sample_window') != context_window):
                 metrics['input_samples'] = []
-            metrics.update(input_model=payload.get('model'), sample_window=context_window,
+            metrics.update(input_model=model, sample_window=context_window,
                            window_metadata=metadata, input_turn_id=turn_id,
                            input_observed_at_ns=now)
             samples = metrics.get('input_samples', [])
@@ -1013,8 +1103,14 @@ def _update_metrics(metrics, payload):
             if not samples or samples[-1] != ratio:
                 metrics['input_samples'] = [*samples, ratio][-5:]
         elif not metrics.get('compacting'):
+            # A numeric numerator is still a valid observation when only the
+            # denominator is unavailable. Never bridge a gap for the growth term.
+            if status == 'completed' and context_window and input_tokens is not None:
+                metadata = {**metadata, 'reason': 'input_exceeds_window'}
             metrics.update(input_observed=False, input_ratio=None,
-                           last_input_tokens=None, last_model_context_window=None)
+                           last_input_tokens=input_tokens if status == 'completed' else None,
+                           last_model_context_window=None, input_turn_id=turn_id,
+                           input_samples=[], window_metadata=metadata)
         if status in {'failed', 'completed'}:
             metrics['failure_observed'] = True
         if status == 'failed':
@@ -1023,16 +1119,15 @@ def _update_metrics(metrics, payload):
                 metrics['failed_turn_ids'] = [*metrics['failed_turn_ids'], turn_id]
     elif event == 'PreCompact':
         metrics['compression_observed'] = True
-        metrics.update(compacting=True, input_ratio=None, input_observed=False,
-                       input_samples=[])
+        metrics['compacting'] = True
+        _clear_input(metrics)
     elif event == 'PostCompact':
         metrics['compression_observed'] = True
         if metrics.get('compacting') or metrics.get('last_compact_turn_id') != turn_id:
             metrics['compression_count'] = (metrics.get('compression_count') or 0) + 1
             metrics['last_compact_turn_id'] = turn_id
-        metrics.update(compacting=False, input_samples=[])
-        metrics.update(input_observed=False, last_input_tokens=None,
-                       last_model_context_window=None, input_ratio=None)
+        metrics['compacting'] = False
+        _clear_input(metrics)
     elif event == 'PostToolUse':
         status = payload.get('status')
         response = payload.get('tool_response')
@@ -1050,6 +1145,9 @@ def _update_metrics(metrics, payload):
 
 def _message(result):
     if result['score_status'] == 'insufficient_data':
+        if 'baseline' in result:
+            return (f"本轮缺少上下文窗口，S2 未评分。标题显示按轮数和压缩次数计算的 "
+                    f"S1 基础分 {result['baseline']['score']}，上下文占用仍未知。")
         level = result.get('level', 'S2')
         suffix = ('这是未校准的同回合语义自检。'
                   if level in {'S3', 'S4'} else '这是未校准的零模型评估。')
@@ -1086,11 +1184,12 @@ def handle_payload(root, payload):
     if event == 'PostToolUse':
         with scope_locked(), locked(score_path.with_suffix('.lock')):
             config = load_config(root)
-            state = read_score_state(root, thread_id)
-            if (config['enabled'] and state.get('metrics', {}).get('last_turn_id') != turn_id):
+            if not config['enabled'] or config['default_level'] == 'S1':
                 return {}
-            if config['enabled']:
-                state['metrics'] = _update_metrics(state.get('metrics'), payload)
+            state = read_score_state(root, thread_id)
+            if state.get('metrics', {}).get('last_turn_id') != turn_id:
+                return {}
+            state['metrics'] = _update_metrics(state.get('metrics'), payload)
             save_score_state(root, thread_id, state)
         with scope_locked():
             current_config = load_config(root)
@@ -1099,6 +1198,14 @@ def handle_payload(root, payload):
                     and current_config.get('default_level') == 'S4'):
                 _history_tool(root, thread_id, turn_id, payload, current_config)
         return {}
+    # Read the account catalog outside the shared write lock. Re-resolve if
+    # settings changed while waiting, so an old estimate cannot enter strict mode.
+    observed_config = config
+    completed_request = event == 'PostModelRequest' and payload.get('status') == 'completed'
+    sample_window = None
+    if (completed_request and config['enabled'] and config['default_level'] != 'S1'
+            and _request_input_tokens(payload) is not None):
+        sample_window = resolve_window(payload, config)
     with scope_locked(), locked(score_path.with_suffix('.lock')):
         config = load_config(root)
         state = read_score_state(root, thread_id)
@@ -1112,10 +1219,18 @@ def handle_payload(root, payload):
             result = {'level': config['default_level'], 'score_status': 'disabled',
                       'score': None, 'reasons': [], 'unknown': []}
         else:
-            if event == 'PostModelRequest':
-                window, metadata = resolve_window(payload, config)
-                payload = {**payload, 'model_context_window': window, '_window_metadata': metadata}
-            state['metrics'] = _update_metrics(state.get('metrics'), payload)
+            if event == 'PostModelRequest' and config['default_level'] == 'S1':
+                # A user may switch S2 -> S1 -> S2 within one turn. This new
+                # request supersedes any S2 sample from before the switch.
+                metrics = state['metrics']
+                if metrics.get('last_input_tokens') is not None or metrics.get('input_samples'):
+                    _clear_input(metrics)
+                    save_score_state(root, thread_id, state)
+                return {}
+            if (completed_request and config != observed_config
+                    and _request_input_tokens(payload) is not None):
+                sample_window = resolve_window(payload, config)
+            state['metrics'] = _update_metrics(state.get('metrics'), payload, window_reading=sample_window)
             result = None
         if event != 'Stop':
             save_score_state(root, thread_id, state)
@@ -1205,6 +1320,7 @@ def handle_payload(root, payload):
             with CodexRPC(cwd=cwd, timeout=1.5, local_only=True) as rpc:
                 rendered = TitleManager(root, rpc, caller_thread_id=thread_id).set_score(
                     thread_id, result['level'], result['score_status'], result['score'], cwd,
+                    baseline_score=result.get('baseline', {}).get('score'),
                     expected_turn_id=None if result['score_status']=='disabled' else turn_id)
         except (OSError, RuntimeError, ValueError) as error:
             # Prefix transport failure does not suppress an otherwise valid warning.

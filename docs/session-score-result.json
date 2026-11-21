@@ -28,7 +28,7 @@
   },
   "installation": {
     "shared_root": "<shared portable CODEX_HOME>",
-    "plugin_id": "clarity-session-titles@agent-clarity-global-39e78bde7a2a",
+    "plugin_id": "clarity-session-titles@<shared-marketplace>",
     "version": "0.7.0",
     "default_level": "S2",
     "available_levels": [

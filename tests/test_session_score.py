@@ -62,6 +62,25 @@ class SessionScoreTests(unittest.TestCase):
         self.assertEqual(result['score_status'], 'insufficient_data')
         self.assertIsNone(result['score'])
 
+    def test_s1_ignores_unrelated_telemetry_from_another_host(self):
+        metrics = {'round_count': 20, 'compression_observed': True, 'compression_count': 0,
+                   'input_samples': ['unsupported', {}], 'failed_turn_ids': None}
+        self.assertEqual(session_score.compute_score(metrics, 'S1')['score'], 38)
+
+    def test_switching_through_s1_cannot_revive_an_older_request_in_the_same_turn(self):
+        base = {'cwd': str(self.root), 'session_id': 'test-thread', 'turn_id': 't'}
+        session_score.handle_payload(self.root, {**base, 'hook_event_name': 'UserPromptSubmit'})
+        request = {**base, 'hook_event_name': 'PostModelRequest', 'status': 'completed',
+                   'model': 'model-a', 'token_usage': {'input_tokens': 800},
+                   'model_context_window': 1000}
+        session_score.handle_payload(self.root, request)
+        session_score.configure(self.root, level='S1')
+        session_score.handle_payload(self.root, {**request, 'model': 'model-b'})
+        session_score.configure(self.root, level='S2')
+        metrics = session_score.read_score_state(self.root, 'test-thread')['metrics']
+        self.assertIsNone(session_score.compute_score(metrics, 'S2')['score'])
+        self.assertFalse(metrics['input_samples'])
+
     def test_subagent_post_model_request_is_ignored(self):
         payload = {
             'cwd': str(self.root), 'session_id': 'test-thread', 'turn_id': 'turn-1',
@@ -606,6 +625,198 @@ class SessionScoreTests(unittest.TestCase):
             {'window_mode':'reference','context_windows':{'example':2000}})
         self.assertEqual(window,2000)
         self.assertEqual(meta['source'],'user_configured')
+
+    def test_same_request_native_usage_needs_no_model_or_catalog(self):
+        base = {'cwd': str(self.root), 'session_id': 'test-thread', 'turn_id': 'turn-new'}
+        session_score.handle_payload(self.root, {**base, 'hook_event_name': 'UserPromptSubmit'})
+        request = {**base, 'hook_event_name': 'PostModelRequest', 'status': 'completed',
+                   'extra_host_field': {'future': True},
+                   'tokenUsage': {'last': {'inputTokens': 400}, 'total': {'inputTokens': 9000},
+                                  'modelContextWindow': 1000}}
+        with patch.object(session_score, '_account_catalog', side_effect=AssertionError):
+            session_score.handle_payload(self.root, request)
+        metrics = session_score.read_score_state(self.root, 'test-thread')['metrics']
+        self.assertEqual(metrics['input_ratio'], .4)
+        self.assertEqual(metrics['window_metadata']['source'], 'hook')
+        del request['tokenUsage']['last']
+        session_score.handle_payload(self.root, request)
+        metrics = session_score.read_score_state(self.root, 'test-thread')['metrics']
+        self.assertIsNone(metrics['input_ratio'])
+
+    def test_catalog_max_only_entry_matches_codex_resolution(self):
+        home = Path(os.environ['CODEX_HOME'])
+        home.mkdir(parents=True, exist_ok=True)
+        (home / 'config.toml').write_text('model_catalog_json = "catalog.json"\n')
+        catalog = home / 'catalog.json'
+        for context, expected in ((None, 950), (500, 475), ('invalid', None), (0, None)):
+            with self.subTest(context=context):
+                catalog.write_text(json.dumps({'models': [{'slug': 'future',
+                    'context_window': context, 'max_context_window': 1000}]}))
+                window, _ = session_score.resolve_window({'model': 'future'},
+                                                          {'window_mode': 'reference'})
+                self.assertEqual(window, expected)
+
+    def test_invalid_or_disagreeing_host_windows_never_use_a_reference(self):
+        config = {'window_mode': 'reference', 'context_windows': {'future': 4000}}
+        for direct, nested in ((-1, None), (True, None), (0, None), (1000, 2000)):
+            with self.subTest(direct=direct, nested=nested):
+                window, meta = session_score.resolve_window(
+                    {'model': 'future', 'model_context_window': direct,
+                     'token_usage': {'modelContextWindow': nested}}, config)
+                self.assertIsNone(window)
+                self.assertEqual(meta['reason'], 'invalid_reported_window')
+
+    def test_growth_never_bridges_an_unmeasured_model_or_window(self):
+        metrics = None
+        event = {'hook_event_name': 'PostModelRequest', 'turn_id': 't', 'status': 'completed'}
+        for model, window, tokens in (('first', 1000, 100), ('new', None, 300),
+                                      ('first', 1000, 800)):
+            metrics = session_score._update_metrics(metrics, {
+                **event, 'model': model, 'model_context_window': window,
+                'token_usage': {'input_tokens': tokens}})
+        self.assertEqual(metrics['input_samples'], [.8])
+        for tokens in (100, 700):
+            metrics = session_score._update_metrics(metrics, {
+                **event, 'model_context_window': 1000, 'token_usage': {'input_tokens': tokens}})
+        self.assertEqual(metrics['input_samples'], [.7])
+
+    def test_strict_stop_rejects_a_reference_measured_before_settings_changed(self):
+        metrics = dict(round_count=1, compression_observed=True, input_ratio=.8,
+                       window_metadata={'source': 'reference_catalog'})
+        config = session_score.load_config()
+        config['window_mode'] = 'actual_only'
+        result = session_score.compute_score(metrics, 'S2', config)
+        self.assertIsNone(result['score'])
+        self.assertNotIn('baseline', result)
+
+    def test_native_catalog_scores_the_first_completed_turn_with_default_percent(self):
+        home = Path(os.environ['CODEX_HOME'])
+        catalog = home / 'catalogs/native.json'
+        catalog.parent.mkdir(parents=True, exist_ok=True)
+        catalog.write_text(json.dumps({'models': [
+            {'slug': 'new-model', 'context_window': 1000}]}))
+        (home / 'config.toml').write_text('model_catalog_json = "catalogs/native.json"\n')
+        (home / 'models_cache.json').write_text(json.dumps({'models': [
+            {'slug': 'old-model', 'context_window': 2000,
+             'effective_context_window_percent': 95}]}))
+        session_score.configure(self.root, level='S2', window_mode='reference')
+        rpc = FakeRPC(self.root)
+        TitleManager(self.root, rpc, caller_thread_id='test-thread').set(
+            'test-thread', '原始需求', '讨论中', self.root, progress='开始工作')
+        base = {'cwd': str(self.root), 'session_id': 'test-thread', 'turn_id': 'turn-1'}
+        with patch.object(session_score, 'CodexRPC', return_value=session_score.nullcontext(rpc)):
+            session_score.handle_payload(self.root, {**base, 'hook_event_name': 'UserPromptSubmit'})
+            session_score.handle_payload(self.root, {**base, 'hook_event_name': 'PostModelRequest',
+                'model': 'new-model', 'status': 'completed',
+                'token_usage': {'input_tokens': 760}})
+            stop = session_score.handle_payload(self.root, {**base, 'hook_event_name': 'Stop'})
+        state = session_score.read_score_state(self.root, 'test-thread')
+        self.assertEqual(state['score_result']['score_status'], 'scored')
+        self.assertEqual(state['score_result']['score'], 64)
+        self.assertEqual(state['metrics']['last_model_context_window'], 950)
+        self.assertEqual(state['score_result']['window_metadata']['source'], 'reference_catalog')
+        self.assertEqual(state['score_result']['window_metadata']['model'], 'new-model')
+        self.assertIn('参考窗口', stop.get('systemMessage', ''))
+        self.assertNotIn('decision', stop)
+        self.assertTrue(rpc.thread['name'].startswith('S2·64分｜'))
+
+    def test_native_catalog_changes_override_conflicting_cache(self):
+        home = Path(os.environ['CODEX_HOME'])
+        home.mkdir(parents=True, exist_ok=True)
+        (home / 'models_cache.json').write_text(json.dumps({'models': [
+            {'slug': 'new-model', 'context_window': 4000,
+             'effective_context_window_percent': 95}]}))
+        first = home / 'first.json'
+        second = home / 'second.json'
+        config = {'window_mode': 'reference', 'context_windows': {}}
+        # Reload both a changed file and a changed setting; neither may reuse
+        # an earlier catalog value or the conflicting models cache.
+        for path, window, percent in ((first, 1000, 95), (first, 2000, 80),
+                                      (second, 3000, 90)):
+            with self.subTest(catalog=path.name, window=window):
+                path.write_text(json.dumps({'models': [
+                    {'slug': 'new-model', 'context_window': window,
+                     'effective_context_window_percent': percent}]}))
+                (home / 'config.toml').write_text(
+                    f'model_catalog_json = {json.dumps(str(path))}\n')
+                resolved, meta = session_score.resolve_window({'model': 'new-model'}, config)
+                self.assertEqual(resolved, window * percent // 100)
+                self.assertEqual(meta['source'], 'reference_catalog')
+                self.assertEqual(meta['model'], 'new-model')
+
+    def test_native_catalog_preserves_strict_hook_and_user_window_precedence(self):
+        home = Path(os.environ['CODEX_HOME'])
+        home.mkdir(parents=True, exist_ok=True)
+        (home / 'native.json').write_text(json.dumps({'models': [
+            {'slug': 'new-model', 'context_window': 1000}]}))
+        (home / 'config.toml').write_text('model_catalog_json = "native.json"\n')
+        for mode, payload, configured, expected, source in (
+                ('actual_only', {}, {}, None, 'unknown'),
+                ('actual_only', {'model_context_window': 1200}, {}, 1200, 'hook'),
+                ('reference', {'token_usage': {'modelContextWindow': 1300}},
+                 {'new-model': 2000}, 1300, 'hook'),
+                ('reference', {}, {'new-model': 2000}, 2000, 'user_configured')):
+            with self.subTest(mode=mode, source=source, expected=expected):
+                window, meta = session_score.resolve_window({'model': 'new-model', **payload},
+                    {'window_mode': mode, 'context_windows': configured})
+                self.assertEqual(window, expected)
+                self.assertEqual(meta['source'], source)
+
+    def test_unusable_explicit_catalog_does_not_reuse_cache_or_previous_sample(self):
+        home = Path(os.environ['CODEX_HOME'])
+        home.mkdir(parents=True, exist_ok=True)
+        catalog = home / 'native.json'
+        (home / 'config.toml').write_text('model_catalog_json = "native.json"\n')
+        (home / 'models_cache.json').write_text(json.dumps({'models': [
+            {'slug': 'new-model', 'context_window': 4000,
+             'effective_context_window_percent': 95}]}))
+        base = {'cwd': str(self.root), 'session_id': 'test-thread', 'turn_id': 'turn-1'}
+        session_score.configure(self.root, level='S2', window_mode='reference')
+        rpc = FakeRPC(self.root)
+        cases = [(None, 'unreadable_catalog_or_config'), ('{', 'unreadable_catalog_or_config'),
+                 (json.dumps({'models': [{'slug': 'new-model-extra', 'context_window': 1000}]}),
+                  'model_not_listed')]
+        for index, (content, reason) in enumerate(cases):
+            with self.subTest(catalog=content):
+                base['turn_id'] = f'turn-{index}'
+                session_score.handle_payload(self.root, {**base, 'hook_event_name': 'UserPromptSubmit'})
+                request = {**base, 'hook_event_name': 'PostModelRequest', 'model': 'new-model',
+                           'status': 'completed', 'token_usage': {'input_tokens': 760}}
+                # A valid observation earlier in this turn must not hide a later failure.
+                session_score.handle_payload(self.root, {**request, 'model_context_window': 950})
+                if content is None:
+                    catalog.unlink(missing_ok=True)
+                else:
+                    catalog.write_text(content)
+                session_score.handle_payload(self.root, request)
+                with patch.object(session_score, 'CodexRPC',
+                                  return_value=session_score.nullcontext(rpc)):
+                    session_score.handle_payload(self.root, {**base, 'hook_event_name': 'Stop'})
+                state = session_score.read_score_state(self.root, 'test-thread')
+                self.assertIsNone(state['metrics']['input_ratio'])
+                self.assertIsNone(state['metrics']['last_model_context_window'])
+                self.assertEqual(state['score_result']['score_status'], 'insufficient_data')
+                self.assertIsNone(state['score_result']['score'])
+                self.assertEqual(state['score_result']['window_metadata']['reason'], reason)
+
+    def test_strict_mode_selected_during_reference_read_discards_estimate(self):
+        base = {'cwd': str(self.root), 'session_id': 'test-thread', 'turn_id': 'turn-1'}
+        session_score.configure(self.root, window_mode='reference', context_windows={'example': 1000})
+        session_score.handle_payload(self.root, {**base, 'hook_event_name': 'UserPromptSubmit'})
+        resolve = session_score.resolve_window
+
+        def change_settings(payload, config):
+            observation = resolve(payload, config)
+            if config['window_mode'] == 'reference':
+                session_score.write_json(session_score.settings_path(self.root), {'window_mode': 'actual_only'})
+            return observation
+
+        with patch.object(session_score, 'resolve_window', side_effect=change_settings):
+            session_score.handle_payload(self.root, {**base, 'hook_event_name': 'PostModelRequest',
+                'model': 'example', 'status': 'completed', 'token_usage': {'input_tokens': 500}})
+        metrics = session_score.read_score_state(self.root, 'test-thread')['metrics']
+        self.assertFalse(metrics['input_observed'])
+        self.assertIsNone(metrics['input_ratio'])
 
     def test_scoring_acceptance_examples_and_bounds(self):
         common=dict(compression_observed=True,compression_count=0,

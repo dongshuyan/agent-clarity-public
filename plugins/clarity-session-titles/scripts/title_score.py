@@ -5,7 +5,7 @@ import re
 
 SCORE_LEVELS = ('S1', 'S2', 'S3', 'S4')
 SCORE_STATUSES = ('scored', 'insufficient_data', 'disabled')
-_SCORE_TOKEN = r'(?:S[1-4]·(?:\d{1,3}分)|未评分)'
+_SCORE_TOKEN = r'(?:S[1-4]·\d{1,3}分|S1·\d{1,3}分（窗口未知）|未评分)'
 SCORE_PREFIX_PATTERN = re.compile(rf'^(?P<token>{_SCORE_TOKEN})｜')
 _WORKTREE_PREFIX_PATTERN = re.compile(r'^(?:(?:\[工作树\]|\[worktree\])\s*)+')
 
@@ -16,9 +16,14 @@ def _raise(message):
     raise TitleError(message)
 
 
-def render_score_prefix(level, score_status, score):
+def render_score_prefix(level, score_status, score, *, baseline_score=None):
     if score_status not in SCORE_STATUSES:
         _raise('评分状态无效')
+    if baseline_score is not None:
+        if (level != 'S2' or score_status != 'insufficient_data' or score is not None
+                or type(baseline_score) is not int or not 0 <= baseline_score <= 100):
+            _raise('仅可在 S2 缺少窗口时附上有效的 S1 基础分')
+        return f'S1·{baseline_score}分（窗口未知）'
     if score_status == 'disabled':
         return None
     if score_status == 'insufficient_data':

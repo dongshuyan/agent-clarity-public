@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in installed-plugin checks using only gpt-6-luna / low model turns."""
+"""Opt-in installed-plugin checks using a named test model at low effort."""
 import argparse
 from contextlib import contextmanager
 import json
@@ -19,12 +19,33 @@ import title_plugin
 from codex_rpc import CodexRPC
 
 
+def check_reference_title(case, catalog_source):
+    """Validate the actual title for a completed ordinary reference-mode turn."""
+    metrics, result = case['metrics'], case['score_result']
+    prefix = case['title'].split('｜', 1)[0]
+    assert result['level'] == 'S2'
+    if metrics['input_observed']:
+        assert metrics['window_metadata']['source'] in ('hook', catalog_source)
+        assert result['score_status'] == 'scored' and prefix == f"S2·{result['score']}分"
+    else:
+        assert result['score_status'] == 'insufficient_data' and result['score'] is None
+        baseline = result.get('baseline')
+        if baseline is None:
+            assert prefix == '未评分'
+        else:
+            assert metrics['last_input_tokens'] is not None and baseline['level'] == 'S1'
+            assert prefix == f"S1·{baseline['score']}分（窗口未知）"
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute',action='store_true',required=True)
+    parser.add_argument('--model', default='gpt-6-luna',
+                        help='Test model available to this account (default: gpt-6-luna).')
     args=parser.parse_args()
-    evidence=REPO/'.local/session-score-20261107/live'
-    evidence.mkdir(parents=True,exist_ok=True)
+    runs=REPO/'.local/live-session-scores'
+    runs.mkdir(parents=True,exist_ok=True)
+    evidence=Path(tempfile.mkdtemp(prefix='run-',dir=runs))
     # Use a fixture inside the already trusted workspace. CLI overrides cannot
     # grant project trust: Codex checks the persisted trust boundary separately.
     workspace=Path(tempfile.mkdtemp(prefix='workspace-',dir=evidence)).resolve()
@@ -54,7 +75,7 @@ def main():
         raise
     plugin_root=Path(record['skill_path']).parents[2]
     score_script=plugin_root/'scripts/session_score.py'
-    report={'model':'gpt-6-luna','effort':'low','workspace':str(workspace),
+    report={'model':args.model,'effort':'low','workspace':str(workspace),
             'plugin_id':record['plugin_id'],'version':record['version'],'cases':[]}
     thread_ids=[]
     with CodexRPC(cwd=workspace,timeout=15,local_only=True) as rpc:
@@ -80,7 +101,7 @@ def main():
         path=evidence/(label+'.events.jsonl')
         cmd=[cli,'--no-daemon','--dangerously-bypass-hook-trust',
              'exec','-c','project_doc_max_bytes=0','--json',*only_this_plugin,
-             '--sandbox','danger-full-access','-m','gpt-6-luna',
+             '--sandbox','danger-full-access','-m',args.model,
              '-c','model_reasoning_effort="low"','-C',str(workspace)]
         prompt = prompt_text or (
             '这是已授权的本地插件测试。请用一句话解释缓存；仅执行已启用的标题核对，'
@@ -99,7 +120,7 @@ def main():
             raise RuntimeError(f'{label}: CLI failed; see {evidence}')
         with CodexRPC(cwd=workspace,timeout=15,local_only=True) as rpc:
             thread=rpc.request('thread/read',{'threadId':tid,'includeTurns':False})['thread']
-        assert thread['model']=='gpt-6-luna' and thread['reasoningEffort']=='low'
+        assert thread['model']==args.model and thread['reasoningEffort']=='low'
         state=json.loads((workspace/'.local/title-scores'/f'{tid}.json').read_text())
         case={'label':label,'thread_id':tid,'title':thread.get('name'),
               'score_result':state.get('score_result'),'metrics':state.get('metrics'),
@@ -111,11 +132,15 @@ def main():
         return tid,case
 
     try:
-        # Real native hook has no W: strict mode must visibly report unknown.
+        # Strict mode scores only when this host actually supplied a usable window.
         configure('--level','S2','--window-mode','actual_only')
         tid,strict=run('strict-s2')
-        assert strict['score_result']['score_status']=='insufficient_data'
-        assert str(strict['title']).startswith('未评分｜')
+        if strict['metrics']['input_observed']:
+            assert strict['metrics']['window_metadata']['source']=='hook'
+            assert strict['score_result']['score_status']=='scored' and strict['title'].startswith('S2·')
+        else:
+            assert strict['score_result']['score_status']=='insufficient_data'
+            assert str(strict['title']).startswith('未评分｜')
 
         configure('--level','S1')
         tid,s1=run('resumed-s1',resume=tid)
@@ -126,10 +151,10 @@ def main():
         # Explicit opt-in affects only this synthetic test installation.
         configure('--level','S2','--window-mode','reference')
         tid,s2=run('resumed-s2-reference',resume=tid)
-        assert s2['score_result']['score_status']=='scored'
-        assert s2['title'].startswith('S2·')
         assert s2['metrics']['round_count']==3
-        assert s2['metrics']['window_metadata']['source']=='reference_cache'
+        account_config = tomllib.loads(user_config.read_text()) if user_config.exists() else {}
+        source = 'reference_catalog' if 'model_catalog_json' in account_config else 'reference_cache'
+        check_reference_title(s2, source)
 
         with CodexRPC(cwd=workspace,timeout=15,local_only=True) as rpc:
             parts=s2['title'].split('｜');parts[-1]='用户保留的进展'
@@ -159,8 +184,7 @@ def main():
         assert s3_cases[2]['score_result']['level'] == 'S3'
         assert s3_cases[2]['pending_probe'] is None
         assert s3_cases[2]['title'].startswith(('S3·', '未评分｜'))
-        assert s3_cases[3]['score_result']['level'] == 'S2'
-        assert s3_cases[3]['title'].startswith(('S2·', '未评分｜'))
+        check_reference_title(s3_cases[3], source)
 
         # Fresh S4 thread: the fifth root round probes with bounded history.
         configure('--level','S4','--window-mode','reference')

@@ -69,6 +69,18 @@ class TitleScoreTests(unittest.TestCase):
         result = self.set_title(status='验证中', progress='检查显示')
         self.assertEqual(result['title'], 'S2·68分｜验证中｜原始需求｜检查显示')
 
+    def test_baseline_prefix_preserves_manual_segments_and_only_represents_missing_s2(self):
+        self.set_title()
+        status = self.manager.set_score('test-thread', 'S2', 'insufficient_data', None,
+                                        self.root, baseline_score=12)
+        self.assertTrue(status['title'].startswith('S1·12分（窗口未知）｜'))
+        self.assertEqual(parse_three_part_title(status['title'])[2][1], '原始需求')
+        self.rpc.thread['name'] = status['title'].replace('开始工作', '手动进展')
+        self.assertTrue(self.set_score()['title'].endswith('｜手动进展'))
+        for level, kind, score in (('S4', 'insufficient_data', None), ('S2', 'scored', 10)):
+            with self.assertRaises(TitleError):
+                render_score_prefix(level, kind, score, baseline_score=12)
+
     def test_score_update_is_noop_when_rendered_prefix_is_unchanged(self):
         self.set_title()
         self.set_score()

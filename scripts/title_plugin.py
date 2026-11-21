@@ -59,6 +59,25 @@ def block(text, start, end, body):
     return text + ('\n\n' if text and not text.endswith('\n\n') else '') + replacement + '\n' if body is not None else text
 
 
+def update_config_block(original, body):
+    # Codex can insert other TOML tables before our closing comment. A package
+    # update with the same registration needs no config rewrite at all.
+    expected = tomllib.loads(original)
+    changed = False
+    for section, registrations in tomllib.loads(body).items():
+        for name, fields in registrations.items():
+            entry = expected.setdefault(section, {}).setdefault(name, {})
+            if any(entry.get(key) != value for key, value in fields.items()):
+                entry.update(fields)
+                changed = True
+    if not changed:
+        return original
+    updated = block(original, CONFIG_START, CONFIG_END, body)
+    if tomllib.loads(updated) != expected:
+        raise InstallError('更新插件配置会影响其他设置，已保留原配置')
+    return updated
+
+
 def safe_path(root, path):
     for part in (path, *path.parents):
         if part == root:
@@ -191,8 +210,7 @@ class Installer:
         config_body = (f'[marketplaces.{json.dumps(self.market)}]\nsource_type = "local"\n'
                        f'source = {json.dumps(str(self.catalog), ensure_ascii=False)}\n\n'
                        f'[plugins.{json.dumps(self.plugin_id)}]\nenabled = true')
-        next_config = block(original_config, CONFIG_START, CONFIG_END, config_body)
-        tomllib.loads(next_config)
+        next_config = update_config_block(original_config, config_body)
         rules = ('## 本项目的三段式会话标题\n\n'
                  '明确需求后、实际进展变化时和交付前，使用 `clarity-session-titles:manage-title` 插件 Skill，'
                  '主动维护“状态｜初始需求｜当前进展”。初始需求保持稳定，状态和进展按事实更新。\n'
@@ -263,7 +281,8 @@ class Installer:
             if previous and previous.get('version') == record['version'] and previous.get('skill_path'):
                 record['skill_path'] = previous['skill_path']
             record['cached_versions'] = previous.get('cached_versions', {}) if previous else {}
-            atomic_text(self.config, next_config)
+            if next_config != original_config:
+                atomic_text(self.config, next_config)
             atomic_text(self.agents, next_rules)
             if not self.global_mode:
                 atomic_text(ignore, next_ignore)

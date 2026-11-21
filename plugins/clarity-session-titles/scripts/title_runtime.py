@@ -349,9 +349,10 @@ class TitleManager:
                     return self._set(thread_id, topic, status, cwd, progress=progress, turn_id=turn_id)
             return self._set(thread_id, topic, status, cwd, progress=progress, turn_id=turn_id)
 
-    def set_score(self, thread_id, level, score_status, score, cwd, *, expected_turn_id=None):
+    def set_score(self, thread_id, level, score_status, score, cwd, *, expected_turn_id=None,
+                  baseline_score=None):
         """Render a machine-owned score prefix without changing semantic segments."""
-        render_score_prefix(level, score_status, score)
+        prefix = render_score_prefix(level, score_status, score, baseline_score=baseline_score)
         with scope_locked():
             if superseded(self.root):
                 return {'result': 'disabled', 'reason': '当前账户已由全局标题安装接管'}
@@ -363,10 +364,10 @@ class TitleManager:
                 if (self.root / '.local').is_symlink():
                     raise TitleError('本地状态目录不能是符号链接')
                 with locked(self.root / '.local/title-installation.lock'):
-                    return self._set_score(thread_id, level, score_status, score, cwd)
-            return self._set_score(thread_id, level, score_status, score, cwd)
+                    return self._set_score(thread_id, level, score_status, score, cwd, prefix)
+            return self._set_score(thread_id, level, score_status, score, cwd, prefix)
 
-    def _set_score(self, thread_id, level, score_status, score, cwd):
+    def _set_score(self, thread_id, level, score_status, score, cwd, desired_prefix):
         if not ID.fullmatch(thread_id or ''):
             raise TitleError('缺少有效的 CODEX_THREAD_ID')
         if thread_id != self.caller_thread_id:
@@ -434,7 +435,6 @@ class TitleManager:
                 save_score_state(self.root, thread_id, score_state)
                 return {'result': 'paused', 'title': current,
                         'reason': '评分前缀已被手动修改，暂不覆盖'}
-            desired_prefix = render_score_prefix(level, score_status, score)
             score_state.update(level=level, score_status=score_status, score=score,
                                updated_at_ns=time.time_ns())
             if current_prefix == desired_prefix:
